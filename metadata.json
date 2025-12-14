@@ -1,0 +1,7 @@
+{
+  "name": "Shypt Logistics",
+  "description": "Shypt - The modern logistics operating system for freight, assisted shopping, and warehouse management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
