@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole } from '../types';
-import Modal from '../components/UI/Modal';
 import { 
   Globe, 
   Package, 
@@ -27,15 +25,18 @@ import {
   Star,
   Plane
 } from 'lucide-react';
+import Modal from '../components/UI/Modal';
+import useAuth from '@/api/auth/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
-interface LandingProps {
-  onLogin: (role: UserRole) => void;
-}
 
-const Landing: React.FC<LandingProps> = ({ onLogin }) => {
+const Landing: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [trackId, setTrackId] = useState('');
   
+  const { login: loginContext } = useAuthContext();
+  const { login: apiLogin, sendOtp, verifyOtp } = useAuth();
+
   // Auth State
   const [loginMode, setLoginMode] = useState<'ADMIN' | 'CLIENT' | null>(null);
   const [email, setEmail] = useState('');
@@ -44,6 +45,8 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
   const [authStep, setAuthStep] = useState<'CREDENTIALS' | 'OTP'>('CREDENTIALS');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [adminOtp, setAdminOtp] = useState<string | null>(null);
+
 
   // Calculator State
   const [calcOrigin, setCalcOrigin] = useState('US');
@@ -104,33 +107,45 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
     setPassword('');
     setOtp('');
     setError('');
+    setAdminOtp(null);
     setIsMenuOpen(false);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleNavigate = (path: string) => {
+    const event = new CustomEvent('app-navigate', { detail: path });
+    window.dispatchEvent(event);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setAdminOtp(null);
 
-    // Simulate network delay
-    setTimeout(() => {
-      // Hardcoded Credential Check
-      // Accepting tusiime@live.com for both, or standard demo emails
-      const validEmail = email.toLowerCase() === 'tusiime@live.com' || (loginMode === 'CLIENT' && email === 'client@shypt.net');
-      const validPass = password === 'password';
+    try {
+      const response = await apiLogin({ email, password });
+      const { data: user, authorization } = response;
 
-      if (validEmail && validPass) {
-        if (loginMode === 'ADMIN') {
-          setAuthStep('OTP');
-          setIsLoading(false);
-        } else {
-          onLogin(UserRole.CLIENT);
-        }
+      const isAdmin = user.user_type === 'super_user' || user.user_type === 'staff';
+
+      if (isAdmin) {
+        // For admin, show OTP but don't require verification yet
+        setAdminOtp(user.otp);
+        setAuthStep('OTP');
+        // The below lines would be used when OTP verification is active
+        // loginContext(user, authorization.token);
+        // handleNavigate('/admin/dashboard');
+
       } else {
-        setError('Invalid email or password');
-        setIsLoading(false);
+        // For regular users, log in directly
+        loginContext(user, authorization.token);
+        handleNavigate('/client/dashboard');
       }
-    }, 800);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpSubmit = (e: React.FormEvent) => {
@@ -138,14 +153,46 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
     setError('');
     setIsLoading(true);
 
+    // TODO: Implement actual OTP verification when ready
+    // For now, we just log the user in since we have the data already.
+    // This part is commented out as per instructions.
+    /*
     setTimeout(() => {
-      if (otp === '123456') {
-        onLogin(UserRole.ADMIN);
+      if (otp === '123456') { // This would be a call to verifyOtp
+        // Refetch user or use login response data
+        // For now, we assume login was successful and we have user data
+        // This is not secure and for demonstration only
+        const user = {} // get user from somewhere
+        const token = '' // get token from somewhere
+        loginContext(user, token);
+        handleNavigate('/admin/dashboard');
       } else {
         setError('Invalid OTP Code');
         setIsLoading(false);
       }
     }, 800);
+    */
+
+    // As per instruction, we are just displaying the OTP. 
+    // To complete the flow for demo, let's log the user in after they 'submit' the OTP
+    // This requires fetching the user/token again or storing it from the previous step.
+    // For simplicity, we'll just simulate a successful login here without real verification.
+    
+    // NOTE: This is a temporary solution for the demo as requested.
+    // In a real scenario, you would verify the OTP with the backend.
+    const reLoginAndRedirect = async () => {
+        try {
+            const response = await apiLogin({ email, password });
+            const { data: user, authorization } = response;
+            loginContext(user, authorization.token);
+            handleNavigate('/admin/dashboard');
+        } catch(err: any) {
+             setError(err.response?.data?.message || 'An error occurred.');
+             setIsLoading(false);
+             setAuthStep('CREDENTIALS');
+        }
+    }
+    reLoginAndRedirect();
   };
 
   const faqs = [
@@ -387,7 +434,7 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
              <span className="text-2xl font-bold text-slate-800 font-mono">ASOS</span>
           </div>
           <div className="mt-8">
-             <button onClick={() => onLogin(UserRole.CLIENT)} className="text-primary-600 font-bold hover:underline">Start Assisted Shopping &rarr;</button>
+             <button onClick={() => openLogin('CLIENT')} className="text-primary-600 font-bold hover:underline">Start Assisted Shopping &rarr;</button>
           </div>
         </div>
       </div>
@@ -499,7 +546,7 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
                      </p>
                   </div>
                   
-                  <button onClick={() => onLogin(UserRole.CLIENT)} className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold transition shadow-lg shadow-primary-600/20">
+                  <button onClick={() => openLogin('CLIENT')} className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-bold transition shadow-lg shadow-primary-600/20">
                      Get Exact Quote
                   </button>
                </div>
@@ -706,7 +753,7 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
                   >
                     {isLoading ? 'Verifying...' : (
                       <>
-                        {loginMode === 'ADMIN' ? 'Next' : 'Sign In'} <ChevronRight size={16} className="ml-1" />
+                        {loginMode === 'CLIENT' ? 'Sign In' : 'Next'} <ChevronRight size={16} className="ml-1" />
                       </>
                     )}
                   </button>
@@ -721,7 +768,9 @@ const Landing: React.FC<LandingProps> = ({ onLogin }) => {
                   </div>
                   <div>
                     <h4 className="text-lg font-bold text-slate-800">Two-Factor Authentication</h4>
-                    <p className="text-sm text-slate-500 mt-1">Enter the 6-digit code sent to your device.</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Enter the 6-digit code. For now, your OTP is: <strong className="text-blue-600 tracking-wider">{adminOtp}</strong>
+                    </p>
                   </div>
                   
                   <input 
