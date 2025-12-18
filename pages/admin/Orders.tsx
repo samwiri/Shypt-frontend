@@ -402,20 +402,6 @@ const Orders: React.FC = () => {
             ></textarea>
           </div>
 
-          {/* <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Origin Country <span className="text-red-500">*</span>
-            </label>
-            <input
-              name="origin_country"
-              type="text"
-              defaultValue={editingOrder?.receiver_email}
-              className="mt-1 w-full border border-slate-300 rounded-md p-2 bg-white text-slate-900"
-              placeholder=""
-              required
-            />
-          </div> */}
-
           <div>
             <label className="block text-sm font-medium text-slate-700">
               Origin Country
@@ -430,8 +416,8 @@ const Orders: React.FC = () => {
                 Select a warehouse
               </option>
               {warehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.code}>
-                  {warehouse.zone} ({warehouse.code})
+                <option key={warehouse.id} value={warehouse.country}>
+                  {warehouse.country} ({warehouse.code})
                 </option>
               ))}
             </select>
