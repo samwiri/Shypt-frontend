@@ -22,6 +22,11 @@ import Modal from "../../components/UI/Modal";
 import { useToast } from "../../context/ToastContext";
 import { sendStatusNotification } from "../../utils/notificationService";
 import { OrderStatus, TaxStatus } from "../../types";
+import useOrders from "../../api/orders/useOrders";
+import { Order } from "../../api/types/orders";
+import { useMemo } from "react";
+import useWareHouse from "../../api/warehouse/useWareHouse";
+import { WareHouse } from "../../api/types/warehouse";
 
 // Interfaces for Component State
 interface HWB {
@@ -61,14 +66,51 @@ interface PendingOrder {
 
 const WarehouseOperations: React.FC = () => {
   const { showToast } = useToast();
+  const { getOrders } = useOrders();
+  const { fetchWareHouses } = useWareHouse();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [warehouses, setWarehouses] = useState<WareHouse[]>([]);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "RECEIPT" | "CONSOLIDATE" | "DECONSOLIDATE"
   >("RECEIPT");
-  const [currentLocation, setCurrentLocation] = useState("CN");
+  const [currentLocation, setCurrentLocation] = useState();
 
   // Modal State
   const [isConsolidateOpen, setIsConsolidateOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  React.useEffect(() => {
+    const loadWarehouses = async () => {
+      try {
+        const res = await fetchWareHouses();
+        setCurrentLocation(res.data[0].id);
+        setWarehouses(res.data);
+      } catch (error) {
+        showToast("Failed to load warehouses", "error");
+      }
+    };
+    loadWarehouses();
+  }, [showToast]);
+
+  React.useEffect(() => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        const response = await getOrders();
+        setOrders(response.data.data);
+      } catch (err) {
+        showToast("Could not fetch orders.", "error");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (activeTab === "CONSOLIDATE") {
+      fetchOrders();
+    }
+  }, [activeTab, showToast]);
 
   // Navigation Helper
   const triggerNav = (path: string) => {
@@ -213,20 +255,11 @@ const WarehouseOperations: React.FC = () => {
   // --- HANDLERS ---
 
   const getLocName = (code: string) => {
-    switch (code) {
-      case "US":
-        return "New York (JFK)";
-      case "UK":
-        return "London (LHR)";
-      case "AE":
-        return "Dubai (DXB)";
-      case "CN":
-        return "Guangzhou (CAN)";
-      case "UG":
-        return "Kampala (EBB)";
-      default:
-        return code;
+    const warehouse = warehouses.find((w) => w.code === code);
+    if (warehouse) {
+      return `${warehouse.name} (${warehouse.code})`;
     }
+    return code;
   };
 
   // 0. Order Selection Handler
@@ -345,7 +378,9 @@ const WarehouseOperations: React.FC = () => {
       .slice(-4)}`;
 
     // Calculate total weight
-    const selectedItems = inventory.filter((i) => selectedHwbs.includes(i.id));
+    const selectedItems = packagesForConsolidation?.filter((i) =>
+      selectedHwbs.includes(i.id)
+    );
     const totalWeight = selectedItems.reduce(
       (sum, item) => sum + item.weight,
       0
@@ -464,6 +499,29 @@ const WarehouseOperations: React.FC = () => {
     setActiveDeconMawb(null);
   };
 
+  const packagesForConsolidation = useMemo(() => {
+    console.log("curent location", currentLocation);
+    console.log("order list", orders);
+    if (!orders) return [];
+    return orders
+      .filter(
+        (order) =>
+          order.status === "RECEIVED" &&
+          Number(order.origin_country) === currentLocation
+      )
+      .flatMap((order) =>
+        order.packages.map((pkg) => ({
+          id: pkg.hwb_number,
+          weight: pkg.weight,
+          desc: pkg.contents,
+          client: order.user.name,
+          value: parseFloat(pkg.declared_value),
+          status: order.status,
+          origin: order.origin_country,
+        }))
+      );
+  }, [orders, currentLocation]);
+
   // Helpers
   const currentInventory = inventory.filter(
     (i) => i.status === OrderStatus.RECEIVED && i.origin === currentLocation
@@ -497,15 +555,15 @@ const WarehouseOperations: React.FC = () => {
             }}
             className="bg-slate-700 border-slate-600 text-white text-sm rounded p-2 focus:ring-primary-500"
           >
-            <optgroup label="Origin Warehouses">
-              <option value="CN">Guangzhou (CN)</option>
-              <option value="US">New York (US)</option>
-              <option value="UK">London (UK)</option>
-              <option value="AE">Dubai (UAE)</option>
-            </optgroup>
-            <optgroup label="Destination">
-              <option value="UG">Kampala (UG)</option>
-            </optgroup>
+            {warehouses.length === 0 ? (
+              <option>Loading...</option>
+            ) : (
+              warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({w.code}) - Zone: {w.zone}
+                </option>
+              ))
+            )}
           </select>
         </div>
       </div>
@@ -748,7 +806,9 @@ const WarehouseOperations: React.FC = () => {
                         type="checkbox"
                         onChange={(e) => {
                           if (e.target.checked)
-                            setSelectedHwbs(currentInventory.map((i) => i.id));
+                            setSelectedHwbs(
+                              packagesForConsolidation.map((i) => i.id)
+                            );
                           else setSelectedHwbs([]);
                         }}
                       />
@@ -761,7 +821,16 @@ const WarehouseOperations: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentInventory.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="p-8 text-center text-slate-400"
+                      >
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : packagesForConsolidation.length === 0 ? (
                     <tr>
                       <td
                         colSpan={6}
@@ -771,7 +840,7 @@ const WarehouseOperations: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    currentInventory.map((item) => (
+                    packagesForConsolidation.map((item) => (
                       <tr
                         key={item.id}
                         className={`border-b border-slate-100 hover:bg-slate-50 ${
@@ -1151,7 +1220,7 @@ const WarehouseOperations: React.FC = () => {
             Consolidating <strong>{selectedHwbs.length}</strong> items. Total
             Weight:{" "}
             <strong>
-              {inventory
+              {packagesForConsolidation
                 .filter((i) => selectedHwbs.includes(i.id))
                 .reduce((acc, c) => acc + c.weight, 0)
                 .toFixed(2)}{" "}
