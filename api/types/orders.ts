@@ -12,7 +12,16 @@ export interface Order {
   receiver_phone: string;
   receiver_email: string;
   receiver_address: string;
-  status: string;
+  status:
+    | "PENDING"
+    | "RECEIVED"
+    | "CONSOLIDATED"
+    | "DISPATCHED"
+    | "IN_TRANSIT"
+    | "ARRIVED"
+    | "READY_FOR_RELEASE"
+    | "RELEASED"
+    | "DELIVERED";
   received_at: string | null;
   dispatched_at: string | null;
   arrived_at: string | null;
@@ -54,4 +63,12 @@ export interface OrdersResponse {
     label: string;
     active: boolean;
   };
+}
+
+export interface PlaceOrderPayload {
+  origin_country: string;
+  receiver_name: string;
+  receiver_phone: string;
+  receiver_email: string;
+  receiver_address: string;
 }

@@ -1,5 +1,5 @@
 import client from "..";
-import { Order, OrdersResponse } from "../types/orders";
+import { Order, OrdersResponse, PlaceOrderPayload } from "../types/orders";
 
 const useOrders = () => {
   const getOrders = async () => {
@@ -7,13 +7,7 @@ const useOrders = () => {
     return data;
   };
 
-  const placeOrder = async (payload: {
-    origin_country: string;
-    receiver_name: string;
-    receiver_phone: string;
-    receiver_email: string;
-    receiver_address: string;
-  }) => {
+  const placeOrder = async (payload: PlaceOrderPayload) => {
     const { data } = await client.post<{ status: string; message: string }>(
       "/api/orders",
       payload
@@ -30,13 +24,7 @@ const useOrders = () => {
 
   const updateOrder = async (
     id: number,
-    payload: {
-      origin_country: string;
-      receiver_name: string;
-      receiver_phone: string;
-      receiver_email: string;
-      receiver_address: string;
-    }
+    payload: PlaceOrderPayload
   ) => {
     const { data } = await client.put<{ status: string; message: string }>(
       `/api/orders/${id}`,
