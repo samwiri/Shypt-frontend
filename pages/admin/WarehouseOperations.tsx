@@ -24,11 +24,8 @@ import { Order } from "../../api/types/orders";
 import { useMemo } from "react";
 import useWareHouse from "../../api/warehouse/useWareHouse";
 import { WareHouse } from "../../api/types/warehouse";
-import {
-  HWB,
-  MAWB,
-  PendingOrder,
-} from "../../components/warehouse/types";
+import useConsolidation from "../../api/consolidation/useConsolidation";
+import { HWB, MAWB, PendingOrder } from "../../components/warehouse/types";
 import ReceiptFlow from "../../components/warehouse/ReceiptFlow";
 import ConsolidateFlow from "../../components/warehouse/ConsolidateFlow";
 import DeconsolidateFlow from "../../components/warehouse/DeconsolidateFlow";
@@ -37,6 +34,7 @@ const WarehouseOperations: React.FC = () => {
   const { showToast } = useToast();
   const { getOrders } = useOrders();
   const { fetchWareHouses } = useWareHouse();
+  const { createConsolidationBatch } = useConsolidation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [warehouses, setWarehouses] = useState<WareHouse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,7 +52,7 @@ const WarehouseOperations: React.FC = () => {
       try {
         const res = await fetchWareHouses();
         // @ts-ignore
-        setCurrentLocation(res.data[0].id);
+        setCurrentLocation(`${res.data[0].country} (${res.data[0].code})`);
         setWarehouses(res.data);
       } catch (error) {
         showToast("Failed to load warehouses", "error");
@@ -334,58 +332,87 @@ const WarehouseOperations: React.FC = () => {
     }
   };
 
-  const handleConsolidateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleConsolidateSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const flight = formData.get("flight") as string;
     const dest = formData.get("destination") as string;
-    const carrier = formData.get("carrier") as string;
+    const transportMode = formData.get("transport_mode") as string;
+    const departureDate = formData.get("departure_date") as string;
 
-    const newMawbId = `MAWB-${currentLocation}-${dest}-${Math.floor(
-      Date.now() / 1000
-    )
-      .toString()
-      .slice(-4)}`;
-
-    // Calculate total weight
     const selectedItems = packagesForConsolidation?.filter((i) =>
       selectedHwbs.includes(i.id)
     );
     const totalWeight = selectedItems.reduce(
-      (sum, item) => sum + item.weight,
+      (sum, item) => sum + Number(item.weight),
       0
     );
+    const packageIds = selectedItems.map((p) => p.packageId);
 
-    const newMawb: MAWB = {
-      id: newMawbId,
-      origin: currentLocation,
-      destination: dest,
-      flightVessel: flight,
-      carrier: carrier,
-      hwbs: selectedHwbs,
+    const consolidationData = {
+      transport_mode: transportMode,
+      container_flight_number: flight,
+      departure_date: departureDate,
+      total_weight: totalWeight.toFixed(2),
+      package_ids: packageIds,
       status: "CONSOLIDATED",
-      taxStatus: TaxStatus.UNASSESSED,
-      eta: "Pending",
-      createdDate: new Date().toISOString().split("T")[0],
-      totalWeight: totalWeight,
     };
 
-    setMawbs([newMawb, ...mawbs]);
+    try {
+      // @ts-ignore
+      const res = await createConsolidationBatch(consolidationData);
+      const newMawbData = res.data;
 
-    setInventory((prev) =>
-      prev.map((item) =>
-        selectedHwbs.includes(item.id)
-          ? { ...item, status: OrderStatus.CONSOLIDATED }
-          : item
-      )
-    );
+      const newMawb: MAWB = {
+        id: newMawbData.mawb_number,
+        origin: currentLocation,
+        destination: dest, // Assuming destination is still relevant for display
+        flightVessel: newMawbData.container_flight_number,
+        carrier: "", // Carrier is not in the new model, leave empty or adjust
+        hwbs: selectedHwbs,
+        status: newMawbData.status as any,
+        taxStatus: TaxStatus.UNASSESSED, // Default for new MAWB
+        eta: "Pending", // Or use a date from response if available
+        createdDate: newMawbData.created_at,
+        totalWeight: parseFloat(newMawbData.total_weight),
+      };
 
-    showToast(`Manifest ${newMawbId} Created Successfully`, "success");
-    setSelectedHwbs([]);
-    setIsConsolidateOpen(false);
+      setMawbs([newMawb, ...mawbs]);
 
-    // Navigate to the full manifest page instead of a modal
-    triggerNav(`/admin/freight/${newMawb.id}`);
+      // Refetch orders or update inventory status locally
+      const newOrders = orders.map((o) => {
+        const newPackages = o.packages.map((p) => {
+          if (packageIds.includes(p.id)) {
+            return { ...p, status: OrderStatus.CONSOLIDATED };
+          }
+          return p;
+        });
+        const allPackagesConsolidated = newPackages.every(
+          (p) => p.status === OrderStatus.CONSOLIDATED
+        );
+        if (allPackagesConsolidated) {
+          return {
+            ...o,
+            packages: newPackages,
+            status: OrderStatus.CONSOLIDATED,
+          };
+        }
+        return { ...o, packages: newPackages };
+      });
+      // @ts-ignore
+      setOrders(newOrders);
+
+      showToast(res.message || "Manifest Created Successfully", "success");
+      setSelectedHwbs([]);
+      setIsConsolidateOpen(false);
+
+      triggerNav(`/admin/freight/${newMawbData.id}`);
+    } catch (error) {
+      showToast("Failed to create consolidation batch.", "error");
+      console.error(error);
+    }
   };
 
   // Quick Action Handler for Outbound Manifest Table
@@ -470,18 +497,17 @@ const WarehouseOperations: React.FC = () => {
   };
 
   const packagesForConsolidation = useMemo(() => {
-    console.log("curent location", currentLocation);
-    console.log("order list", orders);
     if (!orders) return [];
     return orders
       .filter(
         (order) =>
           order.status === "RECEIVED" &&
-          Number(order.origin_country) === currentLocation
+          order.origin_country === currentLocation
       )
       .flatMap((order) =>
         order.packages.map((pkg) => ({
           id: pkg.hwb_number,
+          packageId: pkg.id,
           weight: pkg.weight,
           desc: pkg.contents,
           client: order.user.full_name,
@@ -530,7 +556,7 @@ const WarehouseOperations: React.FC = () => {
               <option>Loading...</option>
             ) : (
               warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
+                <option key={w.id} value={`${w.country} (${w.code})`}>
                   {w.name} ({w.code}) - Zone: {w.zone}
                 </option>
               ))
@@ -652,23 +678,26 @@ const WarehouseOperations: React.FC = () => {
             </label>
             <select
               name="destination"
+              required
               className="w-full border border-slate-300 p-2 rounded bg-white text-slate-900"
             >
               <option value="UG">Kampala, Uganda (EBB)</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Transport Mode
+            </label>
+            <select
+              name="transport_mode"
+              required
+              className="w-full border border-slate-300 p-2 rounded bg-white text-slate-900"
+            >
+              <option value="air">Air Freight</option>
+              <option value="sea">Sea Freight</option>
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Carrier (Airline/Line)
-              </label>
-              <input
-                name="carrier"
-                required
-                placeholder="e.g. Emirates"
-                className="w-full border border-slate-300 p-2 rounded bg-white text-slate-900"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
                 Flight / Vessel
@@ -680,6 +709,17 @@ const WarehouseOperations: React.FC = () => {
                 className="w-full border border-slate-300 p-2 rounded bg-white text-slate-900"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Departure Date
+              </label>
+              <input
+                name="departure_date"
+                required
+                type="date"
+                className="w-full border border-slate-300 p-2 rounded bg-white text-slate-900"
+              />
+            </div>
           </div>
           <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
             Consolidating <strong>{selectedHwbs.length}</strong> items. Total
@@ -687,7 +727,7 @@ const WarehouseOperations: React.FC = () => {
             <strong>
               {packagesForConsolidation
                 .filter((i) => selectedHwbs.includes(i.id))
-                .reduce((acc, c) => acc + c.weight, 0)
+                .reduce((acc, c) => acc + Number(c.weight), 0)
                 .toFixed(2)}{" "}
               kg
             </strong>

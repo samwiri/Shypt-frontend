@@ -10,6 +10,7 @@ export interface HWB {
   status: OrderStatus;
   origin: string;
   orderRef?: string; // Link to original Order
+  packageId?: number;
 }
 
 export interface MAWB {
