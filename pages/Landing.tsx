@@ -190,9 +190,12 @@ const Landing: React.FC = () => {
       if (loginMode === "ADMIN") {
         const isAdmin =
           user.user_type === "super_user" || user.user_type === "staff";
+        // Temporarily disabled OTP for admin as 2FA is not yet implemented in the backend
         if (isAdmin) {
-          setAdminOtp(user.otp);
-          setAuthStep("OTP");
+          // setAdminOtp(user.otp);
+          // setAuthStep("OTP");
+          loginContext(user, authorization.token);
+          handleNavigate("/admin/dashboard");
         } else {
           // If a non-admin tries to log in via admin portal, show error or redirect
           setError("Access Denied: Only staff can use this portal.");
