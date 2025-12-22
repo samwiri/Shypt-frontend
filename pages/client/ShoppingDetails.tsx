@@ -9,7 +9,10 @@ import {
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
 import useAssistedShopping from "../../api/assistedShopping/useAssistedShopping";
-import { AssistedShoppingItem } from "../../api/types/assistedShopping";
+import {
+  AssistedShoppingItem,
+  UpdateAssistedShoppingPayload,
+} from "../../api/types/assistedShopping";
 
 interface ClientShoppingDetailsProps {
   requestId: string;
@@ -23,14 +26,14 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   const { showToast } = useToast();
   const [request, setRequest] = useState<AssistedShoppingItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaying, setIsPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { getAssistedShopping } = useAssistedShopping();
+  const { getAssistedShopping, updateAssistedShopping } = useAssistedShopping();
 
   const fetchRequestDetails = async () => {
     try {
       setIsLoading(true);
-      console.log("fetching request details", requestId);
       const id = parseInt(requestId.replace("REQ-", ""), 10);
       const response = await getAssistedShopping(id);
       setRequest(response.data);
@@ -43,21 +46,41 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   };
 
   useEffect(() => {
-    console.log("requestId changed", requestId);
     if (requestId) {
       fetchRequestDetails();
     }
   }, [requestId]);
 
-  const handlePay = (total: number) => {
-    if (confirm(`Accept quote and pay ${total.toFixed(2)}?`)) {
-      showToast(
-        "Payment successful! We will purchase your item shortly.",
-        "success"
-      );
-      // In a real app, this would trigger a payment flow and PATCH the request status
-      // For now, we can refetch to see if the backend updates the status
-      setTimeout(fetchRequestDetails, 1000);
+  const handlePay = async () => {
+    if (!request) return;
+
+    const total =
+      request.quote_items?.reduce(
+        (acc, q) => acc + q.unit_price * q.quantity,
+        0
+      ) || 0;
+
+    if (confirm(`Accept quote and pay $${total.toFixed(2)}?`)) {
+      setIsPaying(true);
+      try {
+        const payload: UpdateAssistedShoppingPayload = {
+          name: request.name,
+          url: request.url,
+          quantity: request.quantity,
+          notes: request.notes,
+          status: "paid",
+        };
+        await updateAssistedShopping(request.id, payload);
+        showToast(
+          "Payment successful! We will purchase your item shortly.",
+          "success"
+        );
+        await fetchRequestDetails();
+      } catch (error) {
+        showToast("Payment failed. Please try again.", "error");
+      } finally {
+        setIsPaying(false);
+      }
     }
   };
 
@@ -163,10 +186,20 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
 
                   {request.status === "quoted" && (
                     <button
-                      onClick={() => handlePay(quoteTotal)}
-                      className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center"
+                      onClick={handlePay}
+                      disabled={isPaying}
+                      className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold flex items-center justify-center disabled:bg-green-400 disabled:cursor-not-allowed"
                     >
-                      <CreditCard size={18} className="mr-2" /> Pay Now
+                      {isPaying ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processing Payment...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard size={18} className="mr-2" /> Pay Now
+                        </>
+                      )}
                     </button>
                   )}
 
