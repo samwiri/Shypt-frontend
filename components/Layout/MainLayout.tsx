@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import { Bell } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 
 interface MainLayoutProps {
@@ -11,6 +11,7 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNavigate }) => {
   const { user } = useAuthContext();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   useEffect(() => {
     const handleNav = (e: Event) => {
@@ -49,20 +50,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Hide Sidebar when printing */}
-      <div className="print:hidden h-full">
-        <Sidebar 
-          currentPath={currentPath}
-          onNavigate={onNavigate}
-        />
-      </div>
+      {/* Sidebar */}
+      <Sidebar 
+        currentPath={currentPath}
+        onNavigate={onNavigate}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
       
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header - Hide on Print */}
-        <header className="bg-white shadow-sm h-16 border-b border-slate-200 flex items-center justify-between px-8 print:hidden">
-           <h2 className="text-lg font-semibold text-slate-700 capitalize">
-             {currentPath.split('/').pop()?.replace(/-/g, ' ')}
-           </h2>
+        {/* Top Header */}
+        <header className="bg-white shadow-sm h-16 border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 print:hidden">
+          <div className="flex items-center">
+            {/* Hamburger Menu */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden mr-4 p-2 text-slate-500 hover:bg-slate-100 rounded-full"
+            >
+              <Menu size={24} />
+            </button>
+
+            <h2 className="text-lg font-semibold text-slate-700 capitalize hidden sm:block">
+              {currentPath.split('/').pop()?.replace(/-/g, ' ')}
+            </h2>
+          </div>
            <div className="flex items-center space-x-6">
               {/* Notification Bell */}
               <button 
@@ -90,8 +109,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
            </div>
         </header>
 
-        {/* Main Content - Reset padding/overflow for print */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-8 print:p-0 print:overflow-visible">
+        {/* Main Content */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-8 print:p-0 print:overflow-visible">
           {children}
         </main>
       </div>

@@ -17,16 +17,19 @@ import {
   Store,
   MessageSquare,
   Box,
-  Calculator
+  Calculator,
+  X
 } from 'lucide-react';
 import { useAuthContext } from '@/context/AuthContext';
 
 interface SidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, sidebarOpen, setSidebarOpen }) => {
   const { user, logout } = useAuthContext();
 
   const adminLinks = [
@@ -83,12 +86,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const handleLinkClick = (path: string) => {
+    onNavigate(path);
+    setSidebarOpen(false);
+  };
+
   return (
-    <div className="flex flex-col w-64 h-screen bg-slate-900 text-white border-r border-slate-800">
-      <div className="flex items-center justify-center h-16 border-b border-slate-800 flex-shrink-0">
+    <div
+      className={`fixed inset-y-0 left-0 z-30 w-64 h-screen bg-slate-900 text-white border-r border-slate-800
+                flex flex-col
+                transform transition-transform duration-300 ease-in-out
+                md:relative md:translate-x-0 ${
+                  sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                }`}
+    >
+      <div className="flex items-center justify-between h-16 border-b border-slate-800 flex-shrink-0 px-4">
         <h1 className="text-xl font-black tracking-wider flex items-center">
           <span className="text-primary-400 mr-1">Shypt</span>
         </h1>
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden p-2 text-slate-400 hover:bg-slate-800 rounded-full"
+        >
+          <X size={24} />
+        </button>
       </div>
       
       <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
@@ -96,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate }) => {
           {links.map((link) => (
             <button
               key={link.path}
-              onClick={() => onNavigate(link.path)}
+              onClick={() => handleLinkClick(link.path)}
               className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                 currentPath.startsWith(link.path)
                   ? 'bg-primary-600 text-white shadow-md'

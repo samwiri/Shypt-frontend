@@ -103,15 +103,15 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-slate-800">
           Operational Overview
         </h2>
         <div className="flex space-x-2">
-          <button className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition">
+          <button className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition w-full sm:w-auto">
             Scan Package
           </button>
-          <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm hover:bg-slate-50 transition">
+          <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm hover:bg-slate-50 transition w-full sm:w-auto">
             Export Report
           </button>
         </div>
