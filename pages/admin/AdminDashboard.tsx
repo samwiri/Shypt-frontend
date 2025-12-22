@@ -32,45 +32,43 @@ const AdminDashboard: React.FC = () => {
   //   { title: 'Pending Revenue', value: '2,450', icon: <DollarSign className="text-green-600" />, trend: '+8%', trendUp: true },
   // ];
 
-  const stats = counters
-    ? [
-        {
-          title: "Total Deliveries",
-          value: counters.total,
-          icon: <Package className="text-blue-600" />,
-        },
-        {
-          title: "Pending Deliveries",
-          value: counters.pending,
-          icon: <Clock className="text-orange-600" />,
-        },
-        {
-          title: "Out for Delivery",
-          value: counters.out,
-          icon: <Truck className="text-purple-600" />,
-        },
-        {
-          title: "Delivered Today",
-          value: counters.today_deliveries.length,
-          icon: <Calendar className="text-green-600" />,
-        },
-        {
-          title: "Assigned for Delivery",
-          value: counters.assigned,
-          icon: <UserCheck className="text-indigo-600" />,
-        },
-        {
-          title: "Delivered",
-          value: counters.delivered,
-          icon: <CheckCircle className="text-green-600" />,
-        },
-        {
-          title: "Failed Deliveries",
-          value: counters.failed,
-          icon: <AlertTriangle className="text-red-600" />,
-        },
-      ]
-    : [];
+  const stats = [
+    {
+      title: "Total Deliveries",
+      value: counters ? counters.total : "...",
+      icon: <Package className="text-blue-600" />,
+    },
+    {
+      title: "Pending Deliveries",
+      value: counters ? counters.pending : "...",
+      icon: <Clock className="text-orange-600" />,
+    },
+    {
+      title: "Out for Delivery",
+      value: counters ? counters.out : "...",
+      icon: <Truck className="text-purple-600" />,
+    },
+    {
+      title: "Delivered Today",
+      value: counters ? counters.today_deliveries.length : "...",
+      icon: <Calendar className="text-green-600" />,
+    },
+    {
+      title: "Assigned for Delivery",
+      value: counters ? counters.assigned : "...",
+      icon: <UserCheck className="text-indigo-600" />,
+    },
+    {
+      title: "Delivered",
+      value: counters ? counters.delivered : "...",
+      icon: <CheckCircle className="text-green-600" />,
+    },
+    {
+      title: "Failed Deliveries",
+      value: counters ? counters.failed : "...",
+      icon: <AlertTriangle className="text-red-600" />,
+    },
+  ];
 
   const recentHwbs = [
     {
