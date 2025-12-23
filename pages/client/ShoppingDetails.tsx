@@ -91,7 +91,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           invoice_id: invoice.id,
           amount: total,
           method: "CASH",
-          paid_at: new Date().toISOString(),
+          // paid_at: new Date().toISOString(),
           assisted_shopping_id: request.id,
         });
 

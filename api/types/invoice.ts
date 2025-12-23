@@ -96,7 +96,7 @@ export interface RecordPaymentPayload {
   assisted_shopping_id?: number;
   amount: number;
   method: string;
-  paid_at: string; // YYYY-MM-DD HH:MM:SS
+  paid_at?: string; // YYYY-MM-DD HH:MM:SS
   transaction_reference?: string;
   gateway_reference?: string;
   status?: "completed" | "pending" | "failed";
