@@ -92,7 +92,8 @@ export interface UpdateInvoiceItemPayload {
 }
 
 export interface RecordPaymentPayload {
-  invoice_id: number;
+  invoice_id?: number;
+  assisted_shopping_id?: number;
   amount: number;
   method: string;
   paid_at: string; // YYYY-MM-DD HH:MM:SS
