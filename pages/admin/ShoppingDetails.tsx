@@ -183,6 +183,15 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
               <span className="text-xs text-slate-400">
                 • Created {new Date(request.created_at).toLocaleDateString()}
               </span>
+              <a
+                href={request.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-blue-600 hover:underline flex items-center ml-2"
+              >
+                <ExternalLink size={12} className="mr-1" />
+                Original Link
+              </a>
             </div>
           </div>
         </div>

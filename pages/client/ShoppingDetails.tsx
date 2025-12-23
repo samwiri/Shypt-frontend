@@ -5,6 +5,7 @@ import {
   ShoppingCart,
   CreditCard,
   CheckCircle,
+  Truck,
 } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
@@ -31,7 +32,8 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { getAssistedShopping, updateAssistedShopping } = useAssistedShopping();
-  const { recordInvoicePayment } = useInvoice();
+  const { createInvoice, addItemToInvoice, recordInvoicePayment } =
+    useInvoice();
 
   const fetchRequestDetails = async () => {
     try {
@@ -54,7 +56,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   }, [requestId]);
 
   const handlePay = async () => {
-    if (!request) return;
+    if (!request || !request.quote_items) return;
 
     const total =
       request.quote_items?.reduce(
@@ -65,12 +67,35 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
     if (confirm(`Accept quote and pay $${total.toFixed(2)}?`)) {
       setIsPaying(true);
       try {
+        // 1. Create Invoice
+        const invoiceResponse = await createInvoice({
+          user_id: request.user.id,
+          type: "OTHER",
+          due_date: new Date().toISOString().split("T")[0],
+        });
+        // @ts-ignore
+        const invoice = invoiceResponse.data;
+
+        // 2. Add line items to invoice
+        for (const item of request.quote_items) {
+          await addItemToInvoice({
+            invoice_id: invoice.id,
+            description: item.item_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+          });
+        }
+
+        // 3. Record Payment for the new invoice
         await recordInvoicePayment({
+          invoice_id: invoice.id,
           amount: total,
           method: "CASH",
           paid_at: new Date().toISOString(),
           assisted_shopping_id: request.id,
         });
+
+        // 4. Update shopping request status
         const payload: UpdateAssistedShoppingPayload = {
           name: request.name,
           url: request.url,
@@ -79,6 +104,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           status: "paid",
         };
         await updateAssistedShopping(request.id, payload);
+
         showToast(
           "Payment successful! We will purchase your item shortly.",
           "success"
@@ -175,16 +201,25 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           <ArrowLeft size={20} />
         </button>
         <div>
+          <p className="text-sm text-slate-500">REQ-{request.id}</p>
           <h2 className="text-xl font-bold text-slate-800">{request.name}</h2>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-4 mt-2">
             <StatusBadge status={request.status.toUpperCase()} />
+            <div className="text-xs text-slate-500 font-medium flex items-center">
+              <ShoppingCart size={12} className="mr-1.5" />
+              Quantity:{" "}
+              <strong className="ml-1 text-slate-700">
+                {request.quantity}
+              </strong>
+            </div>
             <a
               href={request.url}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-blue-600 hover:underline flex items-center"
             >
-              Original Link <ExternalLink size={10} className="ml-1" />
+              <ExternalLink size={12} className="mr-1" />
+              Original Link
             </a>
           </div>
         </div>
@@ -192,6 +227,40 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {request.status === "purchased" && (
+            <div className="bg-slate-800 text-white p-6 rounded-lg shadow-md">
+              <h4 className="flex items-center text-sm font-bold mb-4">
+                <Truck size={16} className="mr-2" />
+                Your Item is on the Move!
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold">
+                    Retailer ID
+                  </p>
+                  <p className="font-mono font-medium text-slate-200">
+                    {request.retailer_ref}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold">
+                    Carrier
+                  </p>
+                  <p className="font-medium text-slate-200">
+                    {request.carrier}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase font-bold">
+                    Tracking #
+                  </p>
+                  <p className="font-mono font-medium text-slate-200">
+                    {request.tracking_ref}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Quote Card */}
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-200">
