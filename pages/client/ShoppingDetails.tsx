@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   ExternalLink,
@@ -9,6 +9,7 @@ import {
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
 import useAssistedShopping from "../../api/assistedShopping/useAssistedShopping";
+import useInvoice from "@/api/invoices/useInvoice";
 import {
   AssistedShoppingItem,
   UpdateAssistedShoppingPayload,
@@ -30,6 +31,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { getAssistedShopping, updateAssistedShopping } = useAssistedShopping();
+  const { recordInvoicePayment } = useInvoice();
 
   const fetchRequestDetails = async () => {
     try {
@@ -63,6 +65,12 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
     if (confirm(`Accept quote and pay $${total.toFixed(2)}?`)) {
       setIsPaying(true);
       try {
+        await recordInvoicePayment({
+          amount: total,
+          method: "CASH",
+          paid_at: new Date().toISOString(),
+          assisted_shopping_id: request.id,
+        });
         const payload: UpdateAssistedShoppingPayload = {
           name: request.name,
           url: request.url,
@@ -84,6 +92,62 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
     }
   };
 
+  const quoteTotal =
+    request?.quote_items?.reduce(
+      (acc, q) => acc + q.unit_price * q.quantity,
+      0
+    ) || 0;
+  const serviceFee =
+    request?.quote_items?.find((q) => q.item_name.includes("Service Fee"))
+      ?.unit_price || 0;
+  const quoteSubtotal = quoteTotal - serviceFee;
+  const domesticShipping =
+    request?.quote_items?.find((q) => q.item_name.includes("Domestic Shipping"))
+      ?.unit_price || 0;
+  const itemCost = quoteSubtotal - domesticShipping;
+
+  const updates = useMemo(() => {
+    if (!request) return [];
+    const getStatusHistory = (status, createdAt, updatedAt) => {
+      const history = [];
+      const formattedCreationDate = new Date(createdAt).toLocaleString();
+      const formattedUpdateDate = new Date(updatedAt).toLocaleString();
+
+      history.push({ date: formattedCreationDate, text: "Request submitted" });
+
+      if (status === "declined") {
+        history.push({ date: formattedUpdateDate, text: "Request declined" });
+        return history;
+      }
+
+      if (status === "quoted" || status === "paid" || status === "purchased") {
+        history.push({
+          date: formattedUpdateDate,
+          text: "Admin reviewed request",
+        });
+        history.push({ date: formattedUpdateDate, text: "Quote generated" });
+      }
+
+      if (status === "paid" || status === "purchased") {
+        history.push({
+          date: formattedUpdateDate,
+          text: "Quote paid by client",
+        });
+      }
+
+      if (status === "purchased") {
+        history.push({ date: formattedUpdateDate, text: "Item purchased" });
+      }
+
+      return history;
+    };
+    return getStatusHistory(
+      request.status,
+      request.created_at,
+      request.updated_at
+    );
+  }, [request]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-96">
@@ -100,20 +164,6 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
       </div>
     );
   }
-
-  const quoteTotal =
-    request.quote_items?.reduce(
-      (acc, q) => acc + q.unit_price * q.quantity,
-      0
-    ) || 0;
-  const serviceFee =
-    request.quote_items?.find((q) => q.item_name.includes("Service Fee"))
-      ?.unit_price || 0;
-  const quoteSubtotal = quoteTotal - serviceFee;
-  const domesticShipping =
-    request.quote_items?.find((q) => q.item_name.includes("Domestic Shipping"))
-      ?.unit_price || 0;
-  const itemCost = quoteSubtotal - domesticShipping;
 
   return (
     <div className="space-y-6">
@@ -229,12 +279,19 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
 
         {/* Timeline */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 h-fit">
-          <h3 className="font-bold text-slate-800 mb-6">Status History</h3>
-          <div className="text-center text-slate-400 py-8">
-            <p className="text-sm">
-              A detailed status history timeline will be available in a future
-              update.
-            </p>
+          <h3 className="font-bold text-slate-800 mb-6">Status Updates</h3>
+          <div className="border-l-2 border-slate-100 ml-2 space-y-6">
+            {updates.map((u, i) => (
+              <div key={i} className="relative pl-6">
+                <div
+                  className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ${
+                    i === updates.length - 1 ? "bg-primary-500" : "bg-slate-300"
+                  }`}
+                ></div>
+                <p className="text-sm font-medium text-slate-800">{u.text}</p>
+                <p className="text-xs text-slate-500">{u.date}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   ExternalLink,
@@ -94,6 +94,59 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
     }
   };
 
+  const quoteTotal =
+    request?.quote_items?.reduce(
+      (acc, q) => acc + q.unit_price * q.quantity,
+      0
+    ) || 0;
+  const quoteSubtotal =
+    request?.quote_items
+      ?.filter((q) => q.item_name !== "Service Fee (10%)")
+      .reduce((acc, q) => acc + q.unit_price * q.quantity, 0) || 0;
+  const serviceFee = quoteTotal - quoteSubtotal;
+
+  const updates = useMemo(() => {
+    if (!request) return [];
+    const getStatusHistory = (status, createdAt, updatedAt) => {
+      const history = [];
+      const formattedCreationDate = new Date(createdAt).toLocaleString();
+      const formattedUpdateDate = new Date(updatedAt).toLocaleString();
+
+      history.push({ date: formattedCreationDate, text: "Request submitted" });
+
+      if (status === "declined") {
+        history.push({ date: formattedUpdateDate, text: "Request declined" });
+        return history;
+      }
+
+      if (status === "quoted" || status === "paid" || status === "purchased") {
+        history.push({
+          date: formattedUpdateDate,
+          text: "Admin reviewed request",
+        });
+        history.push({ date: formattedUpdateDate, text: "Quote generated" });
+      }
+
+      if (status === "paid" || status === "purchased") {
+        history.push({
+          date: formattedUpdateDate,
+          text: "Quote paid by client",
+        });
+      }
+
+      if (status === "purchased") {
+        history.push({ date: formattedUpdateDate, text: "Item purchased" });
+      }
+
+      return history;
+    };
+    return getStatusHistory(
+      request.status,
+      request.created_at,
+      request.updated_at
+    );
+  }, [request]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-96">
@@ -110,17 +163,6 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
       </div>
     );
   }
-
-  const quoteTotal =
-    request.quote_items?.reduce(
-      (acc, q) => acc + q.unit_price * q.quantity,
-      0
-    ) || 0;
-  const quoteSubtotal =
-    request.quote_items
-      ?.filter((q) => q.item_name !== "Service Fee (10%)")
-      .reduce((acc, q) => acc + q.unit_price * q.quantity, 0) || 0;
-  const serviceFee = quoteTotal - quoteSubtotal;
 
   return (
     <div className="space-y-6">
@@ -257,6 +299,24 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
         </div>
 
         <div className="space-y-6 print:hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 h-fit mb-6">
+            <h3 className="font-bold text-slate-800 mb-6">Status Updates</h3>
+            <div className="border-l-2 border-slate-100 ml-2 space-y-6">
+              {updates.map((u, i) => (
+                <div key={i} className="relative pl-6">
+                  <div
+                    className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ${
+                      i === updates.length - 1
+                        ? "bg-primary-500"
+                        : "bg-slate-300"
+                    }`}
+                  ></div>
+                  <p className="text-sm font-medium text-slate-800">{u.text}</p>
+                  <p className="text-xs text-slate-500">{u.date}</p>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h3 className="font-bold text-slate-800 mb-6 flex items-center uppercase tracking-widest text-xs">
               <Info size={16} className="mr-2" /> Operations Notice
