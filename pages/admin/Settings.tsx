@@ -105,27 +105,75 @@ const Settings: React.FC = () => {
   const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
   const [racks, setRacks] = useState<WarehouseRack[]>([]);
 
+  const stats = useMemo(() => {
+    const totalRacks = racks.length;
+    if (totalRacks === 0) {
+      return {
+        total: 0,
+        highOccupancy: 0,
+        pendingAudit: 0,
+        freeSpace: 100,
+      };
+    }
+
+    const highOccupancy = racks.filter(
+      (r) => r.occupancy && r.occupancy > 80
+    ).length;
+
+    // Racks that have never been audited
+    const pendingAudit = racks.filter((r) => !r.last_audited).length;
+
+    const totalCapacity = racks.reduce((sum, r) => sum + r.capacity, 0);
+    const totalOccupied = racks.reduce(
+      (sum, r) => sum + (r.capacity * (r.occupancy || 0)) / 100,
+      0
+    );
+
+    const freeSpace =
+      totalCapacity > 0
+        ? 100 - Math.round((totalOccupied / totalCapacity) * 100)
+        : 100;
+
+    return {
+      total: totalRacks,
+      highOccupancy,
+      pendingAudit,
+      freeSpace,
+    };
+  }, [racks]);
+
   useEffect(() => {
     const loadData = async () => {
-      if (activeTab === "WAREHOUSES" || activeTab === "LOCATIONS") {
+      // Fetch warehouses if the relevant tab is active AND the data hasn't been loaded yet.
+      if (
+        (activeTab === "WAREHOUSES" || activeTab === "LOCATIONS") &&
+        warehouses.length === 0
+      ) {
+        setIsLoadingWarehouses(true);
         try {
           const res = await fetchWareHouseLocations();
           setWarehouses(res.data);
         } catch (error) {
           showToast("Failed to fetch warehouses", "error");
+        } finally {
+          setIsLoadingWarehouses(false);
         }
       }
-      if (activeTab === "LOCATIONS") {
+      // Fetch racks if the relevant tab is active AND the data hasn't been loaded yet.
+      if (activeTab === "LOCATIONS" && racks.length === 0) {
+        setIsLoadingRacks(true);
         try {
           const res = await fetchWarehouseRacks();
           setRacks(res.data);
         } catch (error) {
           showToast("Failed to fetch racks", "error");
+        } finally {
+          setIsLoadingRacks(false);
         }
       }
     };
     loadData();
-  }, [activeTab]);
+  }, [activeTab, warehouses.length, racks.length]);
 
   const [staff, setStaff] = useState<StaffMember[]>([
     {
@@ -155,6 +203,8 @@ const Settings: React.FC = () => {
   const [editingWarehouse, setEditingWarehouse] =
     useState<WareHouseLocation | null>(null);
   const [isEditingWarehouse, setIsEditingWarehouse] = useState(false);
+  const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(false);
+  const [isLoadingRacks, setIsLoadingRacks] = useState(false);
 
   // --- ACTIONS ---
   const handleSaveGlobal = () => {
@@ -742,19 +792,28 @@ const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <DataTable
-                data={warehouses}
-                columns={warehouseColumns}
-                title="Global Hub Registry"
-                primaryAction={
-                  <button
-                    onClick={() => setModalType("WAREHOUSE")}
-                    className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
-                  >
-                    <Plus size={14} className="mr-1" /> Add Hub
-                  </button>
-                }
-              />
+              {isLoadingWarehouses ? (
+                <div className="flex justify-center items-center h-64">
+                  <RefreshCw
+                    className="animate-spin text-slate-400"
+                    size={32}
+                  />
+                </div>
+              ) : (
+                <DataTable
+                  data={warehouses}
+                  columns={warehouseColumns}
+                  title="Global Hub Registry"
+                  primaryAction={
+                    <button
+                      onClick={() => setModalType("WAREHOUSE")}
+                      className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
+                    >
+                      <Plus size={14} className="mr-1" /> Add Hub
+                    </button>
+                  }
+                />
+              )}
             </div>
           )}
 
@@ -778,7 +837,7 @@ const Settings: React.FC = () => {
                     Total Racks
                   </p>
                   <p className="text-2xl font-black text-blue-900">
-                    {racks.length}
+                    {stats.total}
                   </p>
                 </div>
                 <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
@@ -786,37 +845,50 @@ const Settings: React.FC = () => {
                     High Occupancy
                   </p>
                   <p className="text-2xl font-black text-red-900">
-                    {racks.filter((r) => r.occupancy && r.occupancy > 80).length}
+                    {stats.highOccupancy}
                   </p>
                 </div>
                 <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
                   <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">
                     Pending Audit
                   </p>
-                  <p className="text-2xl font-black text-orange-900">2</p>
+                  <p className="text-2xl font-black text-orange-900">
+                    {stats.pendingAudit}
+                  </p>
                 </div>
                 <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
                     Free Space
                   </p>
-                  <p className="text-2xl font-black text-slate-900">42%</p>
+                  <p className="text-2xl font-black text-slate-900">
+                    {stats.freeSpace}%
+                  </p>
                 </div>
               </div>
 
-              <DataTable
-                data={racks}
-                columns={rackColumns}
-                title="Storage Configuration"
-                searchPlaceholder="Search Zone, ID or Warehouse..."
-                primaryAction={
-                  <button
-                    onClick={() => setModalType("RACK")}
-                    className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
-                  >
-                    <Plus size={14} className="mr-1" /> New Rack
-                  </button>
-                }
-              />
+              {isLoadingRacks ? (
+                <div className="flex justify-center items-center h-64">
+                  <RefreshCw
+                    className="animate-spin text-slate-400"
+                    size={32}
+                  />
+                </div>
+              ) : (
+                <DataTable
+                  data={racks}
+                  columns={rackColumns}
+                  title="Storage Configuration"
+                  searchPlaceholder="Search Zone, ID or Warehouse..."
+                  primaryAction={
+                    <button
+                      onClick={() => setModalType("RACK")}
+                      className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
+                    >
+                      <Plus size={14} className="mr-1" /> New Rack
+                    </button>
+                  }
+                />
+              )}
             </div>
           )}
 
