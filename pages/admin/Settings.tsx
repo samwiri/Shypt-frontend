@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Save,
   Globe,
@@ -30,7 +30,11 @@ import {
 import { useToast } from "../../context/ToastContext";
 import Modal from "../../components/UI/Modal";
 import { DataTable, Column } from "../../components/UI/DataTable";
-import StatusBadge from "../../components/UI/StatusBadge";
+import useWareHouse from "../../api/warehouse/useWareHouse";
+import {
+  WareHouseLocation,
+  WarehouseRack,
+} from "../../api/types/warehouse";
 
 interface HSCode {
   // Added id for DataTable compatibility
@@ -49,29 +53,6 @@ interface StaffMember {
   permissions: string[];
 }
 
-interface Warehouse {
-  // Added id for DataTable compatibility
-  id: string;
-  code: string;
-  name: string;
-  address: string;
-  active: boolean;
-  rackCount: number;
-  manager: string;
-}
-
-interface WarehouseRack {
-  id: string;
-  warehouseCode: string;
-  zoneName: string;
-  binStart: number;
-  binEnd: number;
-  capacity: number;
-  occupancy: number; // Percentage
-  type: "SHELF" | "PALLET" | "BULK" | "COLD" | "FRAGILE";
-  lastAudited?: string;
-}
-
 const Settings: React.FC = () => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
@@ -82,6 +63,15 @@ const Settings: React.FC = () => {
     | "HS_CODES"
     | "LOCATIONS"
   >("GENERAL");
+
+  const {
+    fetchWareHouseLocations,
+    createWareHouseLocation,
+    updateWareHouseLocation,
+    fetchWarehouseRacks,
+    createWarehouseRack,
+    deleteWarehouseRack,
+  } = useWareHouse();
 
   // --- GLOBAL STATE ---
   const [exchangeRate, setExchangeRate] = useState("3850");
@@ -112,91 +102,30 @@ const Settings: React.FC = () => {
     },
   ]);
 
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([
-    {
-      id: "CN",
-      code: "CN",
-      name: "Guangzhou Hub",
-      address: "Baiyun District, Guangzhou",
-      active: true,
-      rackCount: 12,
-      manager: "Chen Wei",
-    },
-    {
-      id: "US",
-      code: "US",
-      name: "New York JKF",
-      address: "Jamaica, NY 11430",
-      active: true,
-      rackCount: 8,
-      manager: "James Miller",
-    },
-    {
-      id: "UK",
-      code: "UK",
-      name: "London Heathrow",
-      address: "Hounslow, TW6",
-      active: true,
-      rackCount: 5,
-      manager: "Sarah Smith",
-    },
-    {
-      id: "AE",
-      code: "AE",
-      name: "Dubai DXB",
-      address: "Deira, Dubai",
-      active: true,
-      rackCount: 15,
-      manager: "Ahmed Ali",
-    },
-  ]);
+  const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
+  const [racks, setRacks] = useState<WarehouseRack[]>([]);
 
-  const [racks, setRacks] = useState<WarehouseRack[]>([
-    {
-      id: "R-101",
-      warehouseCode: "CN",
-      zoneName: "Row A",
-      binStart: 1,
-      binEnd: 20,
-      capacity: 50,
-      occupancy: 85,
-      type: "SHELF",
-      lastAudited: "2025-02-28",
-    },
-    {
-      id: "R-102",
-      warehouseCode: "CN",
-      zoneName: "Row B",
-      binStart: 1,
-      binEnd: 10,
-      capacity: 20,
-      occupancy: 12,
-      type: "FRAGILE",
-      lastAudited: "2025-03-01",
-    },
-    {
-      id: "R-201",
-      warehouseCode: "US",
-      zoneName: "Staging Area",
-      binStart: 1,
-      binEnd: 50,
-      capacity: 100,
-      occupancy: 45,
-      type: "PALLET",
-      lastAudited: "2025-02-15",
-    },
-    {
-      id: "R-301",
-      warehouseCode: "AE",
-      zoneName: "Cold Store 1",
-      binStart: 1,
-      binEnd: 5,
-      capacity: 10,
-      occupancy: 90,
-      type: "COLD",
-      lastAudited: "2025-03-02",
-    },
-  ]);
+  useEffect(() => {
+    const loadData = async () => {
+      if (activeTab === "WAREHOUSES" || activeTab === "LOCATIONS") {
+        try {
+          const res = await fetchWareHouseLocations();
+          setWarehouses(res.data);
+        } catch (error) {
+          showToast("Failed to fetch warehouses", "error");
+        }
+      }
+      if (activeTab === "LOCATIONS") {
+        try {
+          const res = await fetchWarehouseRacks();
+          setRacks(res.data);
+        } catch (error) {
+          showToast("Failed to fetch racks", "error");
+        }
+      }
+    };
+    loadData();
+  }, [activeTab]);
 
   const [staff, setStaff] = useState<StaffMember[]>([
     {
@@ -217,17 +146,21 @@ const Settings: React.FC = () => {
 
   // Modal States
   const [modalType, setModalType] = useState<
-    "WAREHOUSE" | "STAFF" | "HS_CODE" | "PERMISSIONS" | "RACK" | null
+    "WAREHOUSE" | "STAFF" | "HS_CODE" | "PERMISSIONS" | "RACK" | "EDIT_WAREHOUSE" | null
   >(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [isAddingWarehouse, setIsAddingWarehouse] = useState(false);
+  const [isAddingRack, setIsAddingRack] = useState(false);
+  const [editingWarehouse, setEditingWarehouse] =
+    useState<WareHouseLocation | null>(null);
+  const [isEditingWarehouse, setIsEditingWarehouse] = useState(false);
 
   // --- ACTIONS ---
   const handleSaveGlobal = () => {
     showToast("System configuration saved successfully", "success");
   };
 
-  // Fix: Added implementation for handleTestSmtp
   const handleTestSmtp = () => {
     setIsTestingSmtp(true);
     setTimeout(() => {
@@ -236,26 +169,57 @@ const Settings: React.FC = () => {
     }, 2000);
   };
 
-  const handleAddWarehouse = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddWarehouse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsAddingWarehouse(true);
     const fd = new FormData(e.currentTarget);
-    const code = fd.get("code") as string;
-    const newWh: Warehouse = {
-      // Added id
-      id: code,
-      code: code,
+    const payload = {
+      code: fd.get("code") as string,
       name: fd.get("name") as string,
       address: fd.get("address") as string,
       manager: fd.get("manager") as string,
       active: true,
-      rackCount: 0,
     };
-    setWarehouses([...warehouses, newWh]);
-    showToast(`Warehouse ${newWh.code} registered`, "success");
-    setModalType(null);
+    try {
+      const res = await createWareHouseLocation(payload);
+      setWarehouses([...warehouses, res.data]);
+      showToast(`Warehouse ${res.data.code} registered`, "success");
+      setModalType(null);
+    } catch (error) {
+      showToast("Failed to create warehouse", "error");
+    } finally {
+      setIsAddingWarehouse(false);
+    }
   };
 
-  // Fix: Added implementation for handleAddHSCode
+  const handleEditWarehouse = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingWarehouse) return;
+
+    setIsEditingWarehouse(true);
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      code: fd.get("code") as string,
+      name: fd.get("name") as string,
+      address: fd.get("address") as string,
+      manager: fd.get("manager") as string,
+    };
+
+    try {
+      const res = await updateWareHouseLocation(editingWarehouse.id, payload);
+      setWarehouses(
+        warehouses.map((w) => (w.id === editingWarehouse.id ? res.data : w))
+      );
+      showToast(`Warehouse ${res.data.code} updated`, "success");
+      setModalType(null);
+      setEditingWarehouse(null);
+    } catch (error) {
+      showToast("Failed to update warehouse", "error");
+    } finally {
+      setIsEditingWarehouse(false);
+    }
+  };
+
   const handleAddHSCode = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -272,26 +236,37 @@ const Settings: React.FC = () => {
     setModalType(null);
   };
 
-  const handleAddRack = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddRack = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsAddingRack(true);
     const fd = new FormData(e.currentTarget);
-    const newRack: WarehouseRack = {
-      id: `R-${Math.floor(Math.random() * 900) + 100}`,
-      warehouseCode: fd.get("wh") as string,
-      zoneName: fd.get("zone") as string,
-      binStart: Number(fd.get("start")),
-      binEnd: Number(fd.get("end")),
+    const payload = {
+      warehouse_location_id: Number(fd.get("wh")),
+      zone_name: fd.get("zone") as string,
+      bin_start: Number(fd.get("start")),
+      bin_end: Number(fd.get("end")),
       capacity: Number(fd.get("cap")),
-      occupancy: 0,
       type: fd.get("type") as any,
-      lastAudited: new Date().toISOString().split("T")[0],
     };
-    setRacks([...racks, newRack]);
-    showToast(`${newRack.zoneName} added to inventory map`, "success");
-    setModalType(null);
+
+    if (!payload.warehouse_location_id) {
+      showToast("Please select a warehouse.", "error");
+      setIsAddingRack(false);
+      return;
+    }
+
+    try {
+      const res = await createWarehouseRack(payload);
+      setRacks([...racks, res.data]);
+      showToast(`${res.data.zone_name} added to inventory map`, "success");
+      setModalType(null);
+    } catch (error) {
+      showToast("Failed to add rack", "error");
+    } finally {
+      setIsAddingRack(false);
+    }
   };
 
-  // Fix: Added implementation for togglePermission
   const togglePermission = (permId: string) => {
     if (!selectedItem) return;
     const currentPerms = selectedItem.permissions || [];
@@ -302,7 +277,6 @@ const Settings: React.FC = () => {
     setSelectedItem({ ...selectedItem, permissions: newPerms });
   };
 
-  // Fix: Added implementation for savePermissions
   const savePermissions = () => {
     if (!selectedItem) return;
     setStaff((prev) =>
@@ -316,34 +290,46 @@ const Settings: React.FC = () => {
     setModalType(null);
   };
 
-  const handleAuditRack = (id: string) => {
+  const handleAuditRack = (id: number) => {
+    // This needs a backend endpoint to work properly.
+    // For now, it will just update the local state.
     setRacks((prev) =>
       prev.map((r) =>
         r.id === id
-          ? { ...r, lastAudited: new Date().toISOString().split("T")[0] }
+          ? { ...r, last_audited: new Date().toISOString().split("T")[0] }
           : r
       )
     );
     showToast(`Rack ${id} marked as audited`, "success");
   };
 
-  const deleteRack = (id: string) => {
+  const deleteRack = async (rack: WarehouseRack) => {
     if (confirm("Permanently remove this rack from warehouse mapping?")) {
-      setRacks(racks.filter((r) => r.id !== id));
-      showToast("Rack configuration deleted", "info");
+      try {
+        await deleteWarehouseRack(rack.id, { warehouseRack_id: rack.id });
+        setRacks(racks.filter((r) => r.id !== rack.id));
+        showToast("Rack configuration deleted", "info");
+      } catch (error) {
+        showToast("Failed to delete rack", "error");
+      }
     }
   };
 
-  const toggleWhStatus = (code: string) => {
-    setWarehouses((prev) =>
-      prev.map((w) => (w.code === code ? { ...w, active: !w.active } : w))
-    );
-    showToast("Warehouse operational status toggled", "info");
+  const toggleWhStatus = async (wh: WareHouseLocation) => {
+    try {
+      const res = await updateWareHouseLocation(wh.id, { active: !wh.active });
+      setWarehouses((prev) =>
+        prev.map((w) => (w.id === wh.id ? res.data : w))
+      );
+      showToast("Warehouse operational status toggled", "info");
+    } catch (error) {
+      showToast("Failed to update status", "error");
+    }
   };
 
   // --- DATATABLE COLUMNS ---
 
-  const warehouseColumns: Column<Warehouse>[] = [
+  const warehouseColumns: Column<WareHouseLocation>[] = [
     {
       header: "Code",
       accessor: (wh) => (
@@ -377,7 +363,7 @@ const Settings: React.FC = () => {
       accessor: (wh) => (
         <div className="flex items-center text-xs text-slate-600">
           <Layers size={14} className="mr-1.5 text-slate-400" />
-          {wh.rackCount} Configured Racks
+          {wh.rack_count} Configured Racks
         </div>
       ),
     },
@@ -403,12 +389,18 @@ const Settings: React.FC = () => {
       accessor: (wh) => (
         <div className="flex justify-end gap-2">
           <button
-            onClick={() => toggleWhStatus(wh.code)}
+            onClick={() => toggleWhStatus(wh)}
             className="p-1.5 text-slate-500 hover:text-primary-600 rounded bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 transition"
           >
             <Activity size={16} />
           </button>
-          <button className="p-1.5 text-slate-500 hover:text-blue-600 rounded bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 transition">
+          <button
+            onClick={() => {
+              setEditingWarehouse(wh);
+              setModalType("EDIT_WAREHOUSE");
+            }}
+            className="p-1.5 text-slate-500 hover:text-blue-600 rounded bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 transition"
+          >
             <Edit size={16} />
           </button>
         </div>
@@ -427,8 +419,11 @@ const Settings: React.FC = () => {
     },
     {
       header: "Warehouse",
-      accessor: "warehouseCode",
-      sortKey: "warehouseCode",
+      accessor: (r) => {
+        const wh = warehouses.find((w) => w.id === r.warehouse_location_id);
+        return wh ? wh.code : "N/A";
+      },
+      sortKey: "warehouse_location_id",
       sortable: true,
       className: "font-bold text-primary-700",
     },
@@ -437,21 +432,21 @@ const Settings: React.FC = () => {
       accessor: (r) => (
         <div>
           <div className="font-bold text-slate-800 text-xs uppercase">
-            {r.zoneName}
+            {r.zone_name}
           </div>
           <div className="text-[10px] text-slate-400 font-bold tracking-widest">
             {r.type}
           </div>
         </div>
       ),
-      sortKey: "zoneName",
+      sortKey: "zone_name",
       sortable: true,
     },
     {
       header: "Bins",
       accessor: (r) => (
         <span className="text-xs text-slate-600">
-          {r.binStart} - {r.binEnd}
+          {r.bin_start} - {r.bin_end}
         </span>
       ),
     },
@@ -461,22 +456,26 @@ const Settings: React.FC = () => {
         <div className="w-32">
           <div className="flex justify-between text-[10px] font-bold mb-1">
             <span
-              className={r.occupancy > 80 ? "text-red-600" : "text-slate-500"}
+              className={
+                r.occupancy && r.occupancy > 80
+                  ? "text-red-600"
+                  : "text-slate-500"
+              }
             >
-              {r.occupancy}%
+              {r.occupancy || 0}%
             </span>
             <span className="text-slate-400">Cap: {r.capacity}</span>
           </div>
           <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
-                r.occupancy > 80
+                r.occupancy && r.occupancy > 80
                   ? "bg-red-500"
-                  : r.occupancy > 50
+                  : r.occupancy && r.occupancy > 50
                   ? "bg-yellow-500"
                   : "bg-green-500"
               }`}
-              style={{ width: `${r.occupancy}%` }}
+              style={{ width: `${r.occupancy || 0}%` }}
             ></div>
           </div>
         </div>
@@ -486,10 +485,10 @@ const Settings: React.FC = () => {
       header: "Last Audit",
       accessor: (r) => (
         <span className="text-xs text-slate-500">
-          {r.lastAudited || "Never"}
+          {r.last_audited || "Never"}
         </span>
       ),
-      sortKey: "lastAudited",
+      sortKey: "last_audited",
       sortable: true,
     },
     {
@@ -514,7 +513,7 @@ const Settings: React.FC = () => {
             <Printer size={16} />
           </button>
           <button
-            onClick={() => deleteRack(r.id)}
+            onClick={() => deleteRack(r)}
             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
             title="Delete Rack"
           >
@@ -787,7 +786,7 @@ const Settings: React.FC = () => {
                     High Occupancy
                   </p>
                   <p className="text-2xl font-black text-red-900">
-                    {racks.filter((r) => r.occupancy > 80).length}
+                    {racks.filter((r) => r.occupancy && r.occupancy > 80).length}
                   </p>
                 </div>
                 <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
@@ -1028,7 +1027,7 @@ const Settings: React.FC = () => {
               className="w-full border p-2 rounded mt-1 bg-white text-slate-900"
             >
               {warehouses.map((wh) => (
-                <option key={wh.code} value={wh.code}>
+                <option key={wh.id} value={wh.id}>
                   {wh.name} ({wh.code})
                 </option>
               ))}
@@ -1102,9 +1101,13 @@ const Settings: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-slate-100">
             <button
               type="submit"
-              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md"
+              disabled={isAddingRack}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
             >
-              Add to Inventory Map
+              {isAddingRack ? (
+                <RefreshCw size={18} className="mr-2 animate-spin" />
+              ) : null}
+              {isAddingRack ? "Saving..." : "Add to Inventory Map"}
             </button>
           </div>
         </form>
@@ -1317,9 +1320,86 @@ const Settings: React.FC = () => {
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md"
+              disabled={isAddingWarehouse}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
             >
-              Register Hub
+              {isAddingWarehouse ? (
+                <RefreshCw size={18} className="mr-2 animate-spin" />
+              ) : null}
+              {isAddingWarehouse ? "Saving..." : "Register Hub"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* EDIT WAREHOUSE MODAL */}
+      <Modal
+        isOpen={modalType === "EDIT_WAREHOUSE"}
+        onClose={() => setModalType(null)}
+        title="Edit Global Hub"
+      >
+        <form onSubmit={handleEditWarehouse} className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1">
+              <label className="block text-sm font-bold text-slate-700">
+                Code
+              </label>
+              <input
+                name="code"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white uppercase"
+                maxLength={2}
+                placeholder="e.g. TR"
+                defaultValue={editingWarehouse?.code}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-bold text-slate-700">
+                Hub Name
+              </label>
+              <input
+                name="name"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+                placeholder="e.g. Istanbul Hub"
+                defaultValue={editingWarehouse?.name}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Hub Manager
+            </label>
+            <input
+              name="manager"
+              required
+              className="w-full border p-2 rounded mt-1 bg-white"
+              placeholder="Manager Name"
+              defaultValue={editingWarehouse?.manager}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Full Address
+            </label>
+            <textarea
+              name="address"
+              required
+              className="w-full border p-2 rounded mt-1 bg-white"
+              rows={2}
+              defaultValue={editingWarehouse?.address}
+            ></textarea>
+          </div>
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isEditingWarehouse}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
+            >
+              {isEditingWarehouse ? (
+                <RefreshCw size={18} className="mr-2 animate-spin" />
+              ) : null}
+              {isEditingWarehouse ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>
