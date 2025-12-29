@@ -27,7 +27,7 @@ const useInvoice = () => {
 
   const showInvoice = async (invoiceId: number): Promise<Invoice> => {
     const { data } = await client.get(`/api/billing/invoices/${invoiceId}`);
-    return data;
+    return data.data;
   };
 
   const updateInvoice = async (
