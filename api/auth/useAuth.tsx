@@ -58,7 +58,7 @@ const useAuth = () => {
   const updateUserProfile = async (
     payload: UpdateUserPayload
   ): Promise<AuthResponse> => {
-    const { data } = await client.put("/api/auth/user", payload);
+    const { data } = await client.put("/api/auth/update_user", payload);
     return data;
   };
   return {
