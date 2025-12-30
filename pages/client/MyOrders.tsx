@@ -1,52 +1,42 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus,
-  Eye,
   Package as PackageIcon,
-  Trash2,
-  Search,
-  Plane,
-  Ship,
-  AlertCircle,
   Info,
   DollarSign,
   Upload,
-  FileText,
-  MapPin,
   ChevronRight,
   Check,
   AlertOctagon,
   Scale,
   Truck,
+  AlertCircle,
 } from "lucide-react";
 import { DataTable, Column } from "../../components/UI/DataTable";
 import Modal from "../../components/UI/Modal";
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
-import useOrders from "../../api/orders/useOrders";
-import usePackage from "../../api/package/usePackage";
 import useWareHouse from "../../api/warehouse/useWareHouse";
-import { Order, PlaceOrderPayload } from "../../api/types/orders";
-import { Package } from "../../api/types/package";
+import useCargo from "../../api/cargo/useCargo";
 import { WareHouseLocation } from "../../api/types/warehouse";
+import {
+  CargoDeclaration,
+  CreateCargoDeclarationPayload,
+} from "../../api/types/cargo";
 
 const MyOrders: React.FC = () => {
   const { showToast } = useToast();
-  const { getOrders, placeOrder } = useOrders();
-  const { addPackageToOrder } = usePackage();
   const { fetchWareHouseLocations } = useWareHouse();
+  const { listCargoDeclarations, createCargoDeclaration } = useCargo();
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [cargoDeclarations, setCargoDeclarations] = useState<
+    CargoDeclaration[]
+  >([]);
   const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [step, setStep] = useState(1);
-  const [newlyCreatedOrder, setNewlyCreatedOrder] = useState<Order | null>(
-    null
-  );
-  const [packages, setPackages] = useState<Partial<Package>[]>([]);
 
   // Form State
   const [selectedWarehouse, setSelectedWarehouse] = useState("US");
@@ -54,143 +44,44 @@ const MyOrders: React.FC = () => {
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
 
-  const fetchClientOrders = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    try {
-      const [ordersResponse, warehousesResponse] = await Promise.all([
-        getOrders(),
-        fetchWareHouseLocations(),
-      ]);
-      setOrders(ordersResponse.data.data);
-      setWarehouses(warehousesResponse.data);
-    } catch (error) {
-      showToast("Failed to fetch data", "error");
-      console.error(error);
-    } finally {
-      setLoading(false);
+    const [declarationsResult, warehousesResult] = await Promise.allSettled([
+      listCargoDeclarations(),
+      fetchWareHouseLocations(),
+    ]);
+
+    if (declarationsResult.status === "fulfilled") {
+      setCargoDeclarations(declarationsResult.value.data);
+    } else {
+      showToast("Failed to fetch declarations", "error");
+      console.error(declarationsResult.reason);
     }
+
+    if (warehousesResult.status === "fulfilled") {
+      setWarehouses(warehousesResult.value.data);
+    } else {
+      showToast("Failed to fetch warehouse locations", "error");
+      console.error(warehousesResult.reason);
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchClientOrders();
+    fetchData();
   }, []);
 
-  const triggerNav = (path: string) => {
-    window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
+  const resetForm = () => {
+    setSelectedWarehouse("US");
+    setDeclaredValue("");
+    setEstWeight("");
+    setComplianceAgreed(false);
   };
 
-  const resetModal = () => {
-    setIsModalOpen(false);
-    setStep(1);
-    setNewlyCreatedOrder(null);
-    setPackages([]);
-  };
-
-  const handleCreateOrder = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const payload: PlaceOrderPayload = {
-      receiver_name: formData.get("receiver_name") as string,
-      receiver_phone: formData.get("receiver_phone") as string,
-      receiver_email: formData.get("receiver_email") as string,
-      receiver_address: formData.get("receiver_address") as string,
-      origin_country: formData.get("origin_country") as string,
-    };
-
-    try {
-      const response = await placeOrder(payload);
-      showToast("Step 1 Complete: Order created successfully!", "success");
-      setNewlyCreatedOrder(response.data);
-      setStep(2);
-    } catch (error) {
-      showToast("Failed to create order.", "error");
-    }
-  };
-
-  const handleAddPackage = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const fileInput = e.currentTarget.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
-    const file = fileInput.files?.[0];
-
-    const newPackage: Partial<Package> = {
-      contents: formData.get("contents") as string,
-      declared_value: formData.get("declared_value") as string,
-      weight: parseFloat(formData.get("weight") as string),
-      length: parseFloat(formData.get("length") as string),
-      width: parseFloat(formData.get("width") as string),
-      height: parseFloat(formData.get("height") as string),
-      location_id: formData.get("location_id") as string,
-      is_fragile: formData.get("is_fragile") === "on",
-      is_hazardous: formData.get("is_hazardous") === "on",
-    };
-
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPackages([
-          ...packages,
-          { ...newPackage, package_photos: [reader.result as string] },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setPackages([...packages, newPackage]);
-    }
-
-    (e.target as HTMLFormElement).reset();
-    showToast("Package added to the list.", "info");
-  };
-
-  const handleFinish = async () => {
-    if (!newlyCreatedOrder) return;
-    try {
-      setLoading(true);
-      await Promise.all(
-        packages.map((pkg) =>
-          addPackageToOrder({ ...pkg, order_id: newlyCreatedOrder.id })
-        )
-      );
-      showToast("All packages added to your order!", "success");
-      resetModal();
-      await fetchClientOrders();
-    } catch (error) {
-      showToast("An error occurred while adding packages.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // const warehouses = [
-  //   {
-  //     code: "US",
-  //     name: "USA",
-  //     city: "New York",
-  //     addr: "144-25 183rd St, NY 11413",
-  //   },
-  //   {
-  //     code: "UK",
-  //     name: "UK",
-  //     city: "London",
-  //     addr: "Unit 5, Polar Park, UB7 0EX",
-  //   },
-  //   {
-  //     code: "CN",
-  //     name: "China",
-  //     city: "Guangzhou",
-  //     addr: "Room 102, Baiyun District",
-  //   },
-  //   {
-  //     code: "AE",
-  //     name: "UAE",
-  //     city: "Dubai",
-  //     addr: "Whse A2, Al Qusais Ind.",
-  //   },
-  // ];
-
-  const handleCreatePreAlert = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateDeclaration = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
 
     // Strict Validations
@@ -203,33 +94,47 @@ const MyOrders: React.FC = () => {
       return;
     }
 
-    const fd = new FormData(e.currentTarget);
-    // const newOrder = {
-    //   id: `ORD-${Math.floor(Math.random() * 10000)}`,
-    //   desc: fd.get("desc") as string,
-    //   origin: selectedWarehouse,
-    //   weight: estWeight ? `${estWeight}kg (Est)` : "Pending",
-    //   status: "PENDING",
-    //   date: new Date().toISOString().split("T")[0],
-    //   trackingNo: fd.get("tracking") as string,
-    //   value: Number(declaredValue),
-    // };
+    const formData = new FormData(e.currentTarget);
+    const selectedWh = warehouses.find((wh) => wh.code === selectedWarehouse);
 
-    // setOrders([newOrder, ...orders]);
-    showToast(
-      "Cargo Declared! We will notify you once it reaches " + selectedWarehouse,
-      "success"
-    );
-    setIsModalOpen(false);
-    // resetForm();
+    if (!selectedWh) {
+      showToast("Please select a destination warehouse.", "error");
+      return;
+    }
+
+    const payload: CreateCargoDeclarationPayload = {
+      warehouse_location_id: selectedWh.id,
+      internal_curier: formData.get("courier") as string,
+      tracking_number: formData.get("tracking") as string,
+      cargo_details: formData.get("desc") as string,
+      value: Number(declaredValue),
+      weight: estWeight ? Number(estWeight) : undefined,
+    };
+
+    try {
+      setLoading(true);
+      await createCargoDeclaration(payload);
+      showToast(
+        "Cargo Declared! We will notify you once it reaches " +
+          selectedWarehouse,
+        "success"
+      );
+      setIsModalOpen(false);
+      resetForm();
+      await fetchData();
+    } catch (error) {
+      showToast("Failed to create cargo declaration.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const columns: Column<Order>[] = [
+  const columns: Column<CargoDeclaration>[] = [
     {
-      header: "Order ID",
-      accessor: (o) => (
+      header: "Declaration ID",
+      accessor: (cd) => (
         <span className="font-mono font-bold text-primary-600 hover:underline">
-          {o.id}
+          {cd.id}
         </span>
       ),
       sortKey: "id",
@@ -237,48 +142,52 @@ const MyOrders: React.FC = () => {
     },
     {
       header: "Cargo / Tracking",
-      accessor: (o) => (
+      accessor: (cd) => (
         <div className="max-w-xs">
           <div className="font-semibold text-slate-800 truncate">
-            {o?.packages[0]?.contents}
+            {cd.cargo_details}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono font-bold">
-              TRK: {o.tracking_number || "NOT PROVIDED"}
+              TRK: {cd.tracking_number || "NOT PROVIDED"}
             </span>
           </div>
         </div>
       ),
-      // @ts-ignore
-      sortKey: "desc",
+      sortKey: "cargo_details",
       sortable: true,
     },
     {
       header: "Origin",
+      accessor: (cd) => (
+        <span className="font-bold text-slate-500">
+          {cd.location?.name || "N/A"}
+        </span>
+      ),
       // @ts-ignore
-      accessor: "origin",
+      sortKey: "location.name",
       sortable: true,
-      className: "font-bold text-slate-500",
     },
     {
       header: "Status",
-      accessor: (o) => <StatusBadge status={o.status} />,
+      accessor: (cd) => <StatusBadge status={cd.status} />,
       sortKey: "status",
       sortable: true,
     },
     {
       header: "Value",
-      accessor: (o) => (
+      accessor: (cd) => (
         <span className="font-mono font-bold">
-          Ugx {o?.packages[0]?.declared_value}
+          $ {Number(cd.value).toFixed(2)}
         </span>
       ),
       className: "font-mono text-xs font-bold",
+      sortKey: "value",
     },
     {
       header: "",
       className: "text-right",
-      accessor: (o) => (
+      accessor: () => (
         <ChevronRight size={16} className="text-slate-300 ml-auto" />
       ),
     },
@@ -288,7 +197,7 @@ const MyOrders: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">My Orders</h2>
+          <h2 className="text-2xl font-bold text-slate-800">My Declarations</h2>
           <p className="text-slate-500 text-sm">
             Track your shipments and declare incoming packages.
           </p>
@@ -302,13 +211,12 @@ const MyOrders: React.FC = () => {
       </div>
 
       <DataTable
-        data={orders}
+        data={cargoDeclarations}
         columns={columns}
         // @ts-ignore
         loading={loading}
-        onRowClick={(o) => triggerNav(`/client/orders/${o.id}`)}
-        title="My Tracking History"
-        searchPlaceholder="Search by tracking number or receiver..."
+        title="My Declaration History"
+        searchPlaceholder="Search by tracking number or description..."
       />
 
       <Modal
@@ -317,7 +225,7 @@ const MyOrders: React.FC = () => {
         title="New Incoming Cargo Declaration"
         size="lg"
       >
-        <form onSubmit={handleCreatePreAlert} className="space-y-8">
+        <form onSubmit={handleCreateDeclaration} className="space-y-8">
           {/* STEP 1: ORIGIN HUB SELECTOR */}
           <div>
             <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
@@ -352,8 +260,7 @@ const MyOrders: React.FC = () => {
                   {/* @ts-ignore */}
                   <p className="font-bold text-slate-900 mt-1">{wh.city}</p>
                   <p className="text-[10px] text-slate-500 mt-2 font-mono leading-tight group-hover:text-slate-700">
-                    {/* @ts-ignore */}
-                    {wh.addr}
+                    {wh.address}
                   </p>
                 </button>
               ))}
@@ -462,6 +369,7 @@ const MyOrders: React.FC = () => {
                     />
                     <input
                       type="number"
+                      step="0.01"
                       value={estWeight}
                       onChange={(e) => setEstWeight(e.target.value)}
                       placeholder="0.0"
@@ -504,6 +412,7 @@ const MyOrders: React.FC = () => {
                   <span className="text-[9px] text-slate-500 mt-1">
                     PDF or JPG only
                   </span>
+                  <input type="file" className="hidden" />
                 </label>
 
                 <div className="flex-1 flex items-center">
@@ -538,13 +447,17 @@ const MyOrders: React.FC = () => {
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                resetForm();
+              }}
               className="px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition"
             >
-              Save as Draft
+              Cancel
             </button>
             <button
               type="submit"
+              disabled={!complianceAgreed}
               className={`px-10 py-3 rounded-xl text-sm font-bold transition-all shadow-xl ${
                 complianceAgreed
                   ? "bg-primary-600 text-white hover:bg-primary-700 shadow-primary-200"
