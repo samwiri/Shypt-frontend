@@ -34,8 +34,16 @@ interface AdminOrderDetailsProps {
 
 const DECLARATION_STATUSES = ["pending", "received", "declined"];
 const ALL_POSSIBLE_STATUS_OPTIONS = [
-  "pending", "received", "consolidated", "dispatched", "in_transit",
-  "arrived", "ready_for_release", "released", "delivered", "declined"
+  "pending",
+  "received",
+  "consolidated",
+  "dispatched",
+  "in_transit",
+  "arrived",
+  "ready_for_release",
+  "released",
+  "delivered",
+  "declined",
 ];
 
 const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
@@ -43,7 +51,12 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
   onBack,
 }) => {
   const { showToast } = useToast();
-  const { getCargoDeclaration, updateCargoDeclaration, deleteCargoDeclaration } = useCargo(); // Added deleteCargoDeclaration
+  const {
+    getCargoDeclaration,
+    updateCargoDeclaration,
+    deleteCargoDeclaration,
+    uploadCargoDeclarationFiles,
+  } = useCargo();
 
   const [declaration, setDeclaration] = useState<CargoDeclaration | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +64,8 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchDetails = async () => {
     try {
@@ -100,7 +115,6 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
     }
   };
 
-
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!declaration) return;
@@ -135,7 +149,11 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
   const handleDeleteDeclaration = async () => {
     if (!declaration) return;
 
-    if (window.confirm("Are you sure you want to delete this declaration? This action cannot be undone.")) {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this declaration? This action cannot be undone."
+      )
+    ) {
       try {
         await deleteCargoDeclaration(declaration.id);
         showToast("Declaration deleted successfully", "success");
@@ -146,7 +164,34 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
     }
   };
 
+  const handleUploadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!declaration) return;
 
+    const form = e.currentTarget;
+    const fileInput = form.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      showToast("Please select at least one file to upload.", "error");
+      return;
+    }
+
+    const formData = new FormData(form);
+
+    setIsUploading(true);
+    try {
+      await uploadCargoDeclarationFiles(declaration.id, formData);
+      showToast("Files uploaded successfully!", "success");
+      setIsUploadModalOpen(false);
+      fetchDetails();
+    } catch (error) {
+      showToast("Failed to upload files.", "error");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   if (loading) {
     return <div>Loading declaration details...</div>;
@@ -271,10 +316,10 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
           <div className="h-6 w-px bg-slate-300 mx-2"></div>
           <button
             onClick={() => {
-                const originalTitle = document.title;
-                document.title = `Shypt_Waybill_${declaration?.id}`;
-                window.print();
-                document.title = originalTitle;
+              const originalTitle = document.title;
+              document.title = `Shypt_Waybill_${declaration?.id}`;
+              window.print();
+              document.title = originalTitle;
             }}
             className="flex items-center px-3 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm transition"
             title="Print Waybill"
@@ -312,13 +357,15 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
           </button>
         )}
         <button
-          onClick={() => showToast("Action Triggered: GENERATE_INVOICE", "info")}
+          onClick={() =>
+            showToast("Action Triggered: GENERATE_INVOICE", "info")
+          }
           className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition"
         >
           <DollarSign size={14} className="mr-2" /> Generate Invoice
         </button>
         <button
-          onClick={() => showToast("Action Triggered: UPLOAD_DOCS", "info")}
+          onClick={() => setIsUploadModalOpen(true)}
           className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition"
         >
           <Upload size={14} className="mr-2" /> Upload Docs
@@ -513,7 +560,8 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
               </option>
               {ALL_POSSIBLE_STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                  {status.charAt(0).toUpperCase() +
+                    status.slice(1).replace(/_/g, " ")}
                 </option>
               ))}
             </select>
@@ -620,22 +668,24 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
                 "ready_for_release",
                 "released",
                 "delivered",
-                ...(declaration?.status === "declined" && ![
-                    "pending",
-                    "received",
-                    "consolidated",
-                    "dispatched",
-                    "in_transit",
-                    "arrived",
-                    "ready_for_release",
-                    "released",
-                    "delivered",
-                  ].includes(declaration.status)
+                ...(declaration?.status === "declined" &&
+                ![
+                  "pending",
+                  "received",
+                  "consolidated",
+                  "dispatched",
+                  "in_transit",
+                  "arrived",
+                  "ready_for_release",
+                  "released",
+                  "delivered",
+                ].includes(declaration.status)
                   ? ["declined"]
                   : []),
               ].map((status) => (
                 <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                  {status.charAt(0).toUpperCase() +
+                    status.slice(1).replace(/_/g, " ")}
                 </option>
               ))}
             </select>
@@ -660,6 +710,49 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
                 </>
               ) : (
                 "Save Changes"
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        title="Upload Documents"
+      >
+        <form onSubmit={handleUploadSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Select Files
+            </label>
+            <input
+              type="file"
+              name="files[]"
+              multiple
+              className="mt-1 w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => setIsUploadModalOpen(false)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isUploading}
+              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center justify-center disabled:bg-primary-400"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="animate-spin h-4 w-4 mr-2" /> Uploading...
+                </>
+              ) : (
+                "Upload"
               )}
             </button>
           </div>
