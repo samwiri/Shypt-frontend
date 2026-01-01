@@ -77,6 +77,14 @@ const useCargo = () => {
     return data;
   };
 
+  const updateCargoDeclarationStatus = async (
+    declaration_id: number | string,
+    status: string
+  ): Promise<UpdateCargoDeclarationResponse> => {
+    const payload: UpdateCargoDeclarationPayload = { status };
+    return updateCargoDeclaration(declaration_id, payload);
+  };
+
   return {
     listCargoDeclarations,
     createCargoDeclaration,
@@ -85,6 +93,7 @@ const useCargo = () => {
     deleteCargoDeclaration,
     uploadCargoDeclarationFiles,
     deleteCargoDeclarationFile,
+    updateCargoDeclarationStatus,
   };
 };
 

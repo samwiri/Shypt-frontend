@@ -11,6 +11,7 @@ import {
   MapPin,
   FileText,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
@@ -32,13 +33,17 @@ interface AdminOrderDetailsProps {
 }
 
 const DECLARATION_STATUSES = ["pending", "received", "declined"];
+const ALL_POSSIBLE_STATUS_OPTIONS = [
+  "pending", "received", "consolidated", "dispatched", "in_transit",
+  "arrived", "ready_for_release", "released", "delivered", "declined"
+];
 
 const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
   declarationId,
   onBack,
 }) => {
   const { showToast } = useToast();
-  const { getCargoDeclaration, updateCargoDeclaration } = useCargo();
+  const { getCargoDeclaration, updateCargoDeclaration, deleteCargoDeclaration } = useCargo(); // Added deleteCargoDeclaration
 
   const [declaration, setDeclaration] = useState<CargoDeclaration | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +100,7 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
     }
   };
 
+
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!declaration) return;
@@ -126,16 +132,21 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
     }
   };
 
-  const handleAction = (action: string) => {
-    if (action === "PRINT_LABEL") {
-      const originalTitle = document.title;
-      document.title = `Shypt_Waybill_${declaration?.id}`;
-      window.print();
-      document.title = originalTitle;
-    } else {
-      showToast(`Action Triggered: ${action}`, "info");
+  const handleDeleteDeclaration = async () => {
+    if (!declaration) return;
+
+    if (window.confirm("Are you sure you want to delete this declaration? This action cannot be undone.")) {
+      try {
+        await deleteCargoDeclaration(declaration.id);
+        showToast("Declaration deleted successfully", "success");
+        onBack(); // Navigate back to the list after deletion
+      } catch (error) {
+        showToast("Failed to delete declaration", "error");
+      }
     }
   };
+
+
 
   if (loading) {
     return <div>Loading declaration details...</div>;
@@ -259,7 +270,12 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
           <StatusBadge status={declaration.status} />
           <div className="h-6 w-px bg-slate-300 mx-2"></div>
           <button
-            onClick={() => handleAction("PRINT_LABEL")}
+            onClick={() => {
+                const originalTitle = document.title;
+                document.title = `Shypt_Waybill_${declaration?.id}`;
+                window.print();
+                document.title = originalTitle;
+            }}
             className="flex items-center px-3 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm transition"
             title="Print Waybill"
           >
@@ -271,6 +287,13 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
             title="Edit Order"
           >
             <Edit size={20} />
+          </button>
+          <button
+            onClick={handleDeleteDeclaration}
+            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
+            title="Delete Declaration"
+          >
+            <Trash2 size={20} />
           </button>
         </div>
       </div>
@@ -289,13 +312,13 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
           </button>
         )}
         <button
-          onClick={() => handleAction("GENERATE_INVOICE")}
+          onClick={() => showToast("Action Triggered: GENERATE_INVOICE", "info")}
           className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition"
         >
           <DollarSign size={14} className="mr-2" /> Generate Invoice
         </button>
         <button
-          onClick={() => handleAction("UPLOAD_DOCS")}
+          onClick={() => showToast("Action Triggered: UPLOAD_DOCS", "info")}
           className="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition"
         >
           <Upload size={14} className="mr-2" /> Upload Docs
@@ -483,14 +506,14 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
               name="status"
               className="mt-1 w-full border border-slate-300 rounded-md p-2 bg-white text-slate-900"
               required
-              defaultValue=""
+              defaultValue={declaration?.status}
             >
               <option value="" disabled>
                 Select next status
               </option>
-              {availableNextStatuses.map((status) => (
+              {ALL_POSSIBLE_STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
                 </option>
               ))}
             </select>
@@ -587,9 +610,34 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
               defaultValue={declaration?.status}
               className="mt-1 w-full border border-slate-300 rounded-md p-2 bg-white text-slate-900"
             >
-              <option value="pending">Pending</option>
-              <option value="received">Received</option>
-              <option value="declined">Declined</option>
+              {[
+                "pending",
+                "received",
+                "consolidated",
+                "dispatched",
+                "in_transit",
+                "arrived",
+                "ready_for_release",
+                "released",
+                "delivered",
+                ...(declaration?.status === "declined" && ![
+                    "pending",
+                    "received",
+                    "consolidated",
+                    "dispatched",
+                    "in_transit",
+                    "arrived",
+                    "ready_for_release",
+                    "released",
+                    "delivered",
+                  ].includes(declaration.status)
+                  ? ["declined"]
+                  : []),
+              ].map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
           </div>
 
