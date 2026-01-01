@@ -28,7 +28,7 @@ import {
 const MyOrders: React.FC = () => {
   const { showToast } = useToast();
   const { fetchWareHouseLocations } = useWareHouse();
-  const { listCargoDeclarations, createCargoDeclaration } = useCargo();
+  const { listCargoDeclarations, createCargoDeclaration, uploadCargoDeclarationFiles } = useCargo();
 
   const [cargoDeclarations, setCargoDeclarations] = useState<
     CargoDeclaration[]
@@ -45,6 +45,7 @@ const MyOrders: React.FC = () => {
   const [declaredValue, setDeclaredValue] = useState<string>("");
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
   const triggerNav = (path: string) => {
     window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
@@ -83,6 +84,7 @@ const MyOrders: React.FC = () => {
     setDeclaredValue("");
     setEstWeight("");
     setComplianceAgreed(false);
+    setSelectedFiles(null);
   };
 
   const handleCreateDeclaration = async (
@@ -90,7 +92,6 @@ const MyOrders: React.FC = () => {
   ) => {
     e.preventDefault();
 
-    // Strict Validations
     if (!complianceAgreed) {
       showToast("You must acknowledge the prohibited items policy.", "error");
       return;
@@ -100,9 +101,8 @@ const MyOrders: React.FC = () => {
       return;
     }
 
-    const formData = new FormData(e.currentTarget);
+    const form = new FormData(e.currentTarget);
     const selectedWh = warehouses.find((wh) => wh.code === selectedWarehouse);
-
     if (!selectedWh) {
       showToast("Please select a destination warehouse.", "error");
       return;
@@ -110,21 +110,31 @@ const MyOrders: React.FC = () => {
 
     const payload: CreateCargoDeclarationPayload = {
       warehouse_location_id: selectedWh.id,
-      internal_curier: formData.get("courier") as string,
-      tracking_number: formData.get("tracking") as string,
-      cargo_details: formData.get("desc") as string,
+      internal_curier: form.get("courier") as string,
+      tracking_number: form.get("tracking") as string,
+      cargo_details: form.get("desc") as string,
       value: Number(declaredValue),
       weight: estWeight ? Number(estWeight) : undefined,
     };
 
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      await createCargoDeclaration(payload);
-      showToast(
-        "Cargo Declared! We will notify you once it reaches " +
-          selectedWarehouse,
-        "success"
-      );
+      const response = await createCargoDeclaration(payload);
+      showToast("Cargo Declared Successfully!", "success");
+
+      if (selectedFiles && selectedFiles.length > 0 && response.data.id) {
+        const uploadFormData = new FormData();
+        for (let i = 0; i < selectedFiles.length; i++) {
+          uploadFormData.append("files[]", selectedFiles[i]);
+        }
+        try {
+          await uploadCargoDeclarationFiles(response.data.id, uploadFormData);
+          showToast("Invoice uploaded successfully.", "success");
+        } catch (uploadError) {
+          showToast("Declaration was created, but failed to upload the invoice.", "warning");
+        }
+      }
+
       setIsModalOpen(false);
       resetForm();
       await fetchData();
@@ -418,9 +428,9 @@ const MyOrders: React.FC = () => {
                     Upload Vendor Invoice
                   </span>
                   <span className="text-[9px] text-slate-500 mt-1">
-                    PDF or JPG only
+                    {selectedFiles && selectedFiles.length > 0 ? selectedFiles[0].name : 'PDF or JPG only'}
                   </span>
-                  <input type="file" className="hidden" />
+                  <input type="file" className="hidden" onChange={(e) => setSelectedFiles(e.target.files)} />
                 </label>
 
                 <div className="flex-1 flex items-center">
