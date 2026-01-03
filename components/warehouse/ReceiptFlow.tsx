@@ -7,45 +7,109 @@ import { CargoDeclaration } from "@/api/types/cargo";
 import { AuthUser } from "@/api/types/auth";
 
 interface ReceiptFlowProps {
+
   currentLocation: string;
+
   getLocName: (code: string) => string;
+
   setIsScannerOpen: (open: boolean) => void;
+
   handleReceipt: (e: React.FormEvent) => void;
+
   selectedDeclarationId: string;
+
   handleDeclarationSelect: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+
   pendingDeclarations: CargoDeclaration[];
+
   receiptDesc: string;
+
   setReceiptDesc: (value: string) => void;
+
   receiptWeight: string;
+
   setReceiptWeight: (value: string) => void;
+
   receiptValue: string;
+
   setReceiptValue: (value: string) => void;
+
+  receiptLength: string;
+
+  setReceiptLength: (value: string) => void;
+
+  receiptWidth: string;
+
+  setReceiptWidth: (value: string) => void;
+
+  receiptHeight: string;
+
+  setReceiptHeight: (value: string) => void;
+
   inventory: HWB[];
+
   users: AuthUser[];
+
   selectedUserId: string;
+
   setSelectedUserId: (value: string) => void;
+
   isLoading: boolean;
+
 }
 
+
+
 const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
+
   currentLocation,
+
   getLocName,
+
   setIsScannerOpen,
+
   handleReceipt,
+
   selectedDeclarationId,
+
   handleDeclarationSelect,
+
   pendingDeclarations,
+
   receiptDesc,
+
   setReceiptDesc,
+
   receiptWeight,
+
   setReceiptWeight,
+
   receiptValue,
+
   setReceiptValue,
+
+  receiptLength,
+
+  setReceiptLength,
+
+  receiptWidth,
+
+  setReceiptWidth,
+
+  receiptHeight,
+
+  setReceiptHeight,
+
   inventory,
+
   users,
+
   selectedUserId,
+
   setSelectedUserId,
+
   isLoading,
+
 }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -112,7 +176,6 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
               onChange={(e) => setReceiptDesc(e.target.value)}
               className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
               placeholder="e.g. 5x Cartons of Shoes"
-              disabled={!!selectedDeclarationId}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -128,7 +191,6 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
                 onChange={(e) => setReceiptWeight(e.target.value)}
                 className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
                 placeholder="0.00"
-                disabled={!!selectedDeclarationId}
               />
             </div>
             <div>
@@ -143,7 +205,47 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
                 onChange={(e) => setReceiptValue(e.target.value)}
                 className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
                 placeholder="0.00"
-                disabled={!!selectedDeclarationId}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Length (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={receiptLength}
+                onChange={(e) => setReceiptLength(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Width (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={receiptWidth}
+                onChange={(e) => setReceiptWidth(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Height (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={receiptHeight}
+                onChange={(e) => setReceiptHeight(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
               />
             </div>
           </div>

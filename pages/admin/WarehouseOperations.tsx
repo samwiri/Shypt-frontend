@@ -222,6 +222,9 @@ const WarehouseOperations: React.FC = () => {
   const [receiptWeight, setReceiptWeight] = useState("");
   const [receiptDesc, setReceiptDesc] = useState("");
   const [receiptValue, setReceiptValue] = useState("");
+  const [receiptLength, setReceiptLength] = useState("");
+  const [receiptWidth, setReceiptWidth] = useState("");
+  const [receiptHeight, setReceiptHeight] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   // Deconsolidation State
@@ -267,6 +270,9 @@ const WarehouseOperations: React.FC = () => {
       setReceiptDesc("");
       setReceiptWeight("");
       setReceiptValue("");
+      setReceiptLength("");
+      setReceiptWidth("");
+      setReceiptHeight("");
       setSelectedUserId("");
     }
   };
@@ -299,6 +305,10 @@ const WarehouseOperations: React.FC = () => {
       setReceiptDesc(`Scanned Item: ${code}`);
       setSelectedUserId("");
       setReceiptWeight("");
+      setReceiptValue("");
+      setReceiptLength("");
+      setReceiptWidth("");
+      setReceiptHeight("");
       showToast(`Unknown barcode ${code}. Please fill details.`, "info");
     }
   };
@@ -348,6 +358,9 @@ const WarehouseOperations: React.FC = () => {
         contents: receiptDesc || "General Cargo",
         declared_value: receiptValue,
         weight: parseFloat(receiptWeight),
+        length: parseFloat(receiptLength),
+        width: parseFloat(receiptWidth),
+        height: parseFloat(receiptHeight),
         location_id: currentLocation,
         is_fragile: false, // Default or add UI control
         is_hazardous: false, // Default or add UI control
@@ -394,6 +407,9 @@ const WarehouseOperations: React.FC = () => {
       setReceiptWeight("");
       setReceiptDesc("");
       setReceiptValue("");
+      setReceiptLength("");
+      setReceiptWidth("");
+      setReceiptHeight("");
       setSelectedUserId("");
       setSelectedDeclarationId("");
     } catch (error: any) {
@@ -723,6 +739,12 @@ const WarehouseOperations: React.FC = () => {
             setSelectedUserId={setSelectedUserId}
             receiptDesc={receiptDesc}
             setReceiptDesc={setReceiptDesc}
+            receiptLength={receiptLength}
+            setReceiptLength={setReceiptLength}
+            receiptWidth={receiptWidth}
+            setReceiptWidth={setReceiptWidth}
+            receiptHeight={receiptHeight}
+            setReceiptHeight={setReceiptHeight}
             isLoading={loading}
           />
         )}

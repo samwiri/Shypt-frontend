@@ -44,6 +44,9 @@ export interface AssistedShoppingItem {
   retailer_ref?: string;
   carrier?: string;
   tracking_ref?: string;
+  length?: number;
+  width?: number;
+  height?: number;
 }
 
 // Generic paginated response structure for lists
@@ -114,6 +117,9 @@ export interface UpdateAssistedShoppingPayload {
   retailer_ref?: string;
   carrier?: string;
   tracking_ref?: string;
+  length?: number;
+  width?: number;
+  height?: number;
 }
 
 // Response for PUT /api/assisted_shopping/{id}
