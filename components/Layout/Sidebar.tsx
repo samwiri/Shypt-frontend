@@ -36,7 +36,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, sidebarOpen,
     { name: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     
     // Core Orders
-    { name: 'Client Orders', path: '/admin/orders', icon: <ClipboardList size={20} /> },
+    { name: 'Cargo Declarations', path: '/admin/cargo-declarations', icon: <ClipboardList size={20} /> },
+    { name: 'Client Orders', path: '/admin/client-orders', icon: <Package size={20} /> },
     { name: 'Shop For Me', path: '/admin/shopping', icon: <ShoppingCart size={20} /> }, // Moved here
 
     // Operations

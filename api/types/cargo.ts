@@ -28,6 +28,7 @@ export interface CargoDeclaration {
   user_id: number;
   user: AuthUser;
   location: Location;
+  is_insured?: boolean;
 }
 
 export interface ListCargoDeclarationsResponse extends CargoApiResponse {
@@ -46,6 +47,7 @@ export interface CreateCargoDeclarationPayload {
   cargo_details: string;
   value: number;
   weight?: number;
+  insured?: boolean;
 }
 
 export interface CreateCargoDeclarationResponse extends CargoApiResponse {
@@ -59,6 +61,7 @@ export interface UpdateCargoDeclarationPayload {
   value?: number;
   weight?: number;
   status?: "pending" | "received" | "declined" | string;
+  is_insured?: boolean;
 }
 
 export interface UpdateCargoDeclarationResponse extends CargoApiResponse {

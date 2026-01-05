@@ -32,7 +32,7 @@ import { WareHouseLocation } from "../../api/types/warehouse";
 import useAuth from "../../api/auth/useAuth";
 import { AuthUser } from "../../api/types/auth";
 
-const Orders: React.FC = () => {
+const CargoDeclarations: React.FC = () => {
   const { showToast } = useToast();
   const {
     listCargoDeclarations,
@@ -60,6 +60,7 @@ const Orders: React.FC = () => {
   const [declaredValue, setDeclaredValue] = useState<string>("");
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
+  const [isInsured, setIsInsured] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   // Bulk Action State
@@ -74,6 +75,7 @@ const Orders: React.FC = () => {
     setDeclaredValue("");
     setEstWeight("");
     setComplianceAgreed(false);
+    setIsInsured(false);
     setSelectedUserId("");
   };
 
@@ -128,6 +130,7 @@ const Orders: React.FC = () => {
   const handleEdit = (declaration: CargoDeclaration) => {
     setEditingDeclaration(declaration);
     setFormMode("EDIT");
+    setIsInsured(declaration.is_insured || false);
     setIsFormOpen(true);
   };
 
@@ -180,6 +183,7 @@ const Orders: React.FC = () => {
           cargo_details: formData.get("desc") as string,
           value: Number(declaredValue),
           weight: estWeight ? Number(estWeight) : undefined,
+          insured: isInsured,
         };
 
         await createCargoDeclaration(payload);
@@ -196,6 +200,7 @@ const Orders: React.FC = () => {
             ? Number(formData.get("weight"))
             : undefined,
           status: formData.get("status") as string,
+          is_insured: editingDeclaration.is_insured,
         };
         await updateCargoDeclaration(editingDeclaration.id, payload);
         showToast("Declaration updated successfully", "success");
@@ -293,7 +298,7 @@ const Orders: React.FC = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              triggerNav(`/admin/orders/${declaration.id}`);
+              triggerNav(`/admin/cargo-declarations/${declaration.id}`);
             }}
             className="text-slate-400 hover:text-primary-600 p-1"
             title="View Details"
@@ -388,6 +393,22 @@ const Orders: React.FC = () => {
           <option value="received">Received</option>
           <option value="declined">Declined</option>
         </select>
+      </div>
+      <div>
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            name="is_insured"
+            checked={editingDeclaration?.is_insured || false}
+            onChange={(e) =>
+              setEditingDeclaration((prev) =>
+                prev ? { ...prev, is_insured: e.target.checked } : null
+              )
+            }
+            className="mt-0.5 w-4 h-4 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0"
+          />
+          <span className="text-sm font-medium text-slate-700">Insured</span>
+        </label>
       </div>
 
       <div className="pt-4 flex justify-end space-x-3">
@@ -629,31 +650,55 @@ const Orders: React.FC = () => {
               </span>
               <input type="file" className="hidden" />
             </label>
+            <div className="flex flex-col w-[40%]">
+              <div className="flex-1 flex items-center">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div
+                    className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
+                      isInsured
+                        ? "bg-primary-500 border-primary-500"
+                        : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
+                    }`}
+                  >
+                    {isInsured && <Check size={14} className="text-white" />}
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={isInsured}
+                    onChange={() => setIsInsured(!isInsured)}
+                  />
+                  <span className="text-[11px] text-slate-300 font-medium">
+                    insured?
+                  </span>
+                </label>
+              </div>
 
-            <div className="flex-1 flex items-center">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div
-                  className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
-                    complianceAgreed
-                      ? "bg-primary-500 border-primary-500"
-                      : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
-                  }`}
-                >
-                  {complianceAgreed && (
-                    <Check size={14} className="text-white" />
-                  )}
-                </div>
-                <input
-                  type="checkbox"
-                  className="hidden"
-                  checked={complianceAgreed}
-                  onChange={() => setComplianceAgreed(!complianceAgreed)}
-                />
-                <span className="text-[11px] text-slate-300 font-medium">
-                  I confirm these details are accurate for URA Customs and
-                  acknowledge the prohibited items list.
-                </span>
-              </label>
+              <div className="flex-1 flex items-center">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div
+                    className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
+                      complianceAgreed
+                        ? "bg-primary-500 border-primary-500"
+                        : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
+                    }`}
+                  >
+                    {complianceAgreed && (
+                      <Check size={14} className="text-white" />
+                    )}
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={complianceAgreed}
+                    onChange={() => setComplianceAgreed(!complianceAgreed)}
+                  />
+                  <span className="text-[11px] text-slate-300 font-medium">
+                    I confirm these details are accurate for URA Customs and
+                    acknowledge the prohibited items list.
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -727,7 +772,7 @@ const Orders: React.FC = () => {
         columns={columns}
         loading={loading}
         onRowClick={(declaration) =>
-          triggerNav(`/admin/orders/${declaration.id}`)
+          triggerNav(`/admin/cargo-declarations/${declaration.id}`)
         }
         title="All Declarations"
         searchPlaceholder="Search by tracking #, client, or description..."
@@ -761,4 +806,4 @@ const Orders: React.FC = () => {
   );
 };
 
-export default Orders;
+export default CargoDeclarations;

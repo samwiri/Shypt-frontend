@@ -19,7 +19,8 @@ import MainLayout from "./components/Layout/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProfile from "./pages/admin/AdminProfile";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-import Orders from "./pages/admin/Orders";
+import CargoDeclarations from "./pages/admin/CargoDeclarations";
+import ClientOrders from "./pages/admin/ClientOrders";
 import OrderDetails from "./pages/admin/OrderDetails";
 import WarehouseOperations from "./pages/admin/WarehouseOperations";
 import Inventory from "./pages/admin/Inventory";
@@ -44,6 +45,7 @@ import UserDetails from "./pages/admin/UserDetails";
 import Ticketing from "./pages/admin/Ticketing";
 import TicketDetails from "./pages/admin/TicketDetails";
 import Reports from "./pages/admin/Reports";
+import AdminClientOrderDetails from "./pages/admin/AdminClientOrderDetails";
 import Settings from "./pages/admin/Settings";
 
 // CLIENT IMPORTS
@@ -107,8 +109,10 @@ const AppRoutes: React.FC = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="profile" element={<AdminProfile />} />
         <Route path="notifications" element={<AdminNotifications />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="orders/:orderId" element={<OrderDetailsWrapper />} />
+        <Route path="cargo-declarations" element={<CargoDeclarations />} />
+        <Route path="cargo-declarations/:orderId" element={<OrderDetailsWrapper />} />
+        <Route path="client-orders" element={<ClientOrders />} />
+        <Route path="client-orders/:orderId" element={<AdminClientOrderDetailsWrapper />} />
         <Route path="warehouse" element={<WarehouseOperations />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/:id" element={<InventoryDetailsWrapper />} />
@@ -217,7 +221,7 @@ const OrderDetailsWrapper = () => {
   return (
     <OrderDetails
       declarationId={orderId || ""}
-      onBack={() => navigate("/admin/orders")}
+      onBack={() => navigate("/admin/cargo-declarations")}
     />
   );
 };
@@ -302,6 +306,17 @@ const TicketDetailsWrapper = () => {
     <TicketDetails id={id || ""} onBack={() => navigate("/admin/tickets")} />
   );
 };
+const AdminClientOrderDetailsWrapper = () => {
+  const { orderId } = useParams<{ orderId: string }>();
+  const navigate = useNavigate();
+  return (
+    <AdminClientOrderDetails
+      orderId={orderId || ""}
+      onBack={() => navigate("/admin/client-orders")}
+    />
+  );
+};
+
 const ClientOrderDetailsWrapper = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

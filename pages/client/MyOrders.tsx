@@ -49,6 +49,7 @@ const MyOrders: React.FC = () => {
   const [declaredValue, setDeclaredValue] = useState<string>("");
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
+  const [isInsured, setIsInsured] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
   const triggerNav = (path: string) => {
@@ -119,6 +120,7 @@ const MyOrders: React.FC = () => {
       cargo_details: form.get("desc") as string,
       value: Number(declaredValue),
       weight: estWeight ? Number(estWeight) : undefined,
+      insured: isInsured,
     };
 
     setIsSubmitting(true);
@@ -446,30 +448,57 @@ const MyOrders: React.FC = () => {
                   />
                 </label>
 
-                <div className="flex-1 flex items-center">
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <div
-                      className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
-                        complianceAgreed
-                          ? "bg-primary-500 border-primary-500"
-                          : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
-                      }`}
-                    >
-                      {complianceAgreed && (
-                        <Check size={14} className="text-white" />
-                      )}
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="hidden"
-                      checked={complianceAgreed}
-                      onChange={() => setComplianceAgreed(!complianceAgreed)}
-                    />
-                    <span className="text-[11px] text-slate-300 font-medium">
-                      I confirm these details are accurate for URA Customs and
-                      acknowledge the prohibited items list.
-                    </span>
-                  </label>
+                <div className="flex flex-col w-[40%]">
+                  <div className="flex-1 flex items-center">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <div
+                        className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
+                          isInsured
+                            ? "bg-primary-500 border-primary-500"
+                            : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
+                        }`}
+                      >
+                        {isInsured && (
+                          <Check size={14} className="text-white" />
+                        )}
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={isInsured}
+                        onChange={() => setIsInsured(!isInsured)}
+                      />
+                      <span className="text-[11px] text-slate-300 font-medium">
+                        Insured?
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="flex-1 flex items-center">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <div
+                        className={`mt-0.5 w-6 h-6 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0 ${
+                          complianceAgreed
+                            ? "bg-primary-500 border-primary-500"
+                            : "border-slate-600 bg-slate-800 group-hover:border-slate-400"
+                        }`}
+                      >
+                        {complianceAgreed && (
+                          <Check size={14} className="text-white" />
+                        )}
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={complianceAgreed}
+                        onChange={() => setComplianceAgreed(!complianceAgreed)}
+                      />
+                      <span className="text-[11px] text-slate-300 font-medium">
+                        I confirm these details are accurate for URA Customs and
+                        acknowledge the prohibited items list.
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

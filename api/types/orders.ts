@@ -68,6 +68,8 @@ export interface OrdersResponse {
 }
 
 export interface PlaceOrderPayload {
+  user_id: number;
+  cargo_declaration_id?: number;
   origin_country: string;
   receiver_name: string;
   receiver_phone: string;
