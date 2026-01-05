@@ -50,12 +50,20 @@ const usePackage = () => {
     return response;
   };
 
+  const getPackages = async () => {
+    const { data: response } = await client.get<{
+      data: Package[];
+    }>("/api/packages");
+    return response;
+  };
+
   return {
     addPackageToOrder,
     updateOrderPackage,
     deletePackage,
     addPackageImages,
     deletePackageImages,
+    getPackages,
   };
 };
 

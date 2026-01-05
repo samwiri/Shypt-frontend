@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Package,
   Grid,
@@ -19,6 +19,8 @@ import { DataTable, Column } from "../../components/UI/DataTable";
 import Modal from "../../components/UI/Modal";
 import { useToast } from "../../context/ToastContext";
 import StatusBadge from "../../components/UI/StatusBadge";
+import usePackage from "@/api/package/usePackage";
+import { Package as PackageType } from "@/api/types/package";
 
 interface InventoryItem {
   id: string;
@@ -26,73 +28,81 @@ interface InventoryItem {
   client: string;
   weight: number;
   location: string; // Bin/Rack ID
-  status: "RECEIVED" | "STORED" | "DAMAGED" | "CONSOLIDATED";
+  status: "RECEIVED" | "STORED" | "DAMAGED" | "CONSOLIDATED" | string;
   warehouse: string;
 }
 
+const ContentLoader = () => (
+  <div className="flex justify-center items-center p-8">
+    <svg
+      className="animate-spin h-8 w-8 text-slate-500"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  </div>
+);
+
 const Inventory: React.FC = () => {
   const { showToast } = useToast();
+  const { getPackages } = usePackage();
   const [modalType, setModalType] = useState<"BIN" | "DAMAGE" | "LABEL" | null>(
     null
   );
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [labelCopies, setLabelCopies] = useState(1);
 
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
   // Bulk Action State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchInventory = async () => {
+      setLoading(true);
+      try {
+        const response = await getPackages();
+        const formattedInventory = response.data.map((pkg: PackageType) => ({
+          id: pkg.hwb_number,
+          desc: pkg.contents,
+          //  @ts-ignore
+          client: pkg.order?.user?.full_name || "N/A",
+          weight: pkg.weight,
+          location: pkg.location_id || "UNASSIGNED",
+          //  @ts-ignore
+          status: pkg.status,
+          //  @ts-ignore
+          warehouse: pkg.order?.origin_country || "N/A",
+        }));
+        setItems(formattedInventory);
+      } catch (error) {
+        showToast("Failed to fetch inventory.", "error");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInventory();
+  }, [showToast]);
 
   const triggerNav = (path: string) => {
     window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
   };
-
-  // Mock Data
-  const [items, setItems] = useState<InventoryItem[]>([
-    {
-      id: "HWB-8821",
-      desc: "Laptop Batch A",
-      client: "Acme Corp",
-      weight: 12.5,
-      location: "ROW-A-01",
-      status: "STORED",
-      warehouse: "CN",
-    },
-    {
-      id: "HWB-8822",
-      desc: "Fashion Samples",
-      client: "Jane Doe",
-      weight: 4.2,
-      location: "UNASSIGNED",
-      status: "RECEIVED",
-      warehouse: "CN",
-    },
-    {
-      id: "HWB-9901",
-      desc: "Glass Vase",
-      client: "Art House",
-      weight: 2.1,
-      location: "UNASSIGNED",
-      status: "DAMAGED",
-      warehouse: "US",
-    },
-    {
-      id: "HWB-9932",
-      desc: "Car Bumper",
-      client: "Mechanic Ltd",
-      weight: 15.0,
-      location: "BULK-AREA-B",
-      status: "STORED",
-      warehouse: "UK",
-    },
-    {
-      id: "HWB-9944",
-      desc: "Textile Rolls",
-      client: "Fabrics Co",
-      weight: 150.0,
-      location: "ROW-C-05",
-      status: "STORED",
-      warehouse: "CN",
-    },
-  ]);
 
   const handleOpenBin = (e: React.MouseEvent, item: InventoryItem) => {
     e.stopPropagation();
@@ -325,7 +335,9 @@ const Inventory: React.FC = () => {
             <Box size={16} className="mr-2" /> Unassigned Items
           </p>
           <p className="text-2xl font-bold text-yellow-600 mt-1">
-            {items.filter((i) => i.location === "UNASSIGNED").length}
+            {loading
+              ? "-"
+              : items.filter((i) => i.location === "UNASSIGNED").length}
           </p>
         </div>
         <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
@@ -333,7 +345,7 @@ const Inventory: React.FC = () => {
             <AlertTriangle size={16} className="mr-2" /> Damaged Items
           </p>
           <p className="text-2xl font-bold text-red-600 mt-1">
-            {items.filter((i) => i.status === "DAMAGED").length}
+            {loading ? "-" : items.filter((i) => i.status === "DAMAGED").length}
           </p>
         </div>
       </div>
@@ -376,16 +388,20 @@ const Inventory: React.FC = () => {
         </div>
       )}
 
-      <DataTable
-        data={items}
-        columns={columns}
-        onRowClick={(item) => triggerNav(`/admin/inventory/${item.id}`)}
-        title="Floor Inventory"
-        searchPlaceholder="Search ID, Client or Location..."
-        selectable={true}
-        selectedRowIds={selectedIds}
-        onSelectionChange={setSelectedIds}
-      />
+      {loading ? (
+        <ContentLoader />
+      ) : (
+        <DataTable
+          data={items}
+          columns={columns}
+          onRowClick={(item) => triggerNav(`/admin/inventory/${item.id}`)}
+          title="Floor Inventory"
+          searchPlaceholder="Search ID, Client or Location..."
+          selectable={true}
+          selectedRowIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
+      )}
 
       {/* BIN ASSIGNMENT MODAL */}
       <Modal
