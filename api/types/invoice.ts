@@ -100,11 +100,11 @@ export interface RecordPaymentPayload {
   invoice_id?: number;
   assisted_shopping_id?: number;
   amount: number;
-  method: string;
+  method: "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER" | "CASH";
   paid_at?: string; // YYYY-MM-DD HH:MM:SS
   transaction_reference?: string;
   gateway_reference?: string;
-  status?: "completed" | "pending" | "failed";
+  status?: "PENDING" | "COMPLETED" | "FAILED";
 }
 
 export interface MessageResponse {

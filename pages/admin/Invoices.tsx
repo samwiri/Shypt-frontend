@@ -27,27 +27,35 @@ const Invoices: React.FC = () => {
   const { listInvoices, createInvoice, addItemToInvoice } = useInvoice();
   const { fetchAllUsers } = useAuth();
   const [invoices, setInvoices] = useState<InvoiceRowData[]>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
 
-  const fetchInvoices = async () => {
-    const invoicesResponse = await listInvoices();
-    const mappedInvoices = invoicesResponse.data.map((inv) => ({
-      id: inv.invoice_number,
-      client: inv.user?.full_name || "N/A",
-      type: inv.type,
-      amount: inv.line_items.reduce((acc, item) => acc + item.unit_price, 0),
-      status: inv.status,
-      date: new Date(inv.created_at).toLocaleDateString(),
-      original_id: inv.id,
-    }));
-    setInvoices(mappedInvoices);
+  const fetchInvoicesAndUsers = async () => {
+    try {
+      setIsLoadingInvoices(true);
+      const invoicesResponse = await listInvoices();
+      const mappedInvoices = invoicesResponse.data.map((inv: Invoice) => ({
+        id: inv.invoice_number,
+        client: inv.user?.full_name || "N/A",
+        type: inv.type,
+        amount: inv.line_items.reduce((acc, item) => acc + item.unit_price, 0),
+        status: inv.status,
+        date: new Date(inv.created_at).toLocaleDateString(),
+        original_id: inv.id,
+      }));
+      setInvoices(mappedInvoices);
+
+      const users = await fetchAllUsers();
+      setUsersList(users.data);
+    } catch (error) {
+      showToast("Failed to fetch initial data", "error");
+      console.error(error);
+    } finally {
+      setIsLoadingInvoices(false);
+    }
   };
 
   useEffect(() => {
-    (async () => {
-      await fetchInvoices();
-      const users = await fetchAllUsers();
-      setUsersList(users.data);
-    })();
+    fetchInvoicesAndUsers();
   }, []);
 
   // Helper to simulate navigation
@@ -90,7 +98,7 @@ const Invoices: React.FC = () => {
         unit_price: payload.amount,
       });
 
-      await fetchInvoices();
+      await fetchInvoicesAndUsers();
 
       showToast("Invoice Generated and Sent to Client", "success");
       setIsCreateOpen(false);
@@ -166,6 +174,34 @@ const Invoices: React.FC = () => {
         .reduce((sum, i) => sum + i.amount, 0),
     [invoices]
   );
+
+  if (isLoadingInvoices) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <svg
+          className="animate-spin h-8 w-8 text-slate-500"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <span className="ml-3 text-slate-500">Loading invoices...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
