@@ -3,113 +3,61 @@ import { Box, Camera, CheckCircle } from "lucide-react";
 import StatusBadge from "../UI/StatusBadge";
 import { HWB } from "./types";
 import { OrderStatus } from "../../types";
-import { CargoDeclaration } from "@/api/types/cargo";
+import { Order } from "@/api/types/orders";
 import { AuthUser } from "@/api/types/auth";
 
 interface ReceiptFlowProps {
-
   currentLocation: string;
-
   getLocName: (code: string) => string;
-
   setIsScannerOpen: (open: boolean) => void;
-
   handleReceipt: (e: React.FormEvent) => void;
-
-  selectedDeclarationId: string;
-
-  handleDeclarationSelect: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-
-  pendingDeclarations: CargoDeclaration[];
-
+  selectedOrderId: string;
+  handleOrderSelect: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  pendingOrders: Order[];
   receiptDesc: string;
-
   setReceiptDesc: (value: string) => void;
-
   receiptWeight: string;
-
   setReceiptWeight: (value: string) => void;
-
   receiptValue: string;
-
   setReceiptValue: (value: string) => void;
-
   receiptLength: string;
-
   setReceiptLength: (value: string) => void;
-
   receiptWidth: string;
-
   setReceiptWidth: (value: string) => void;
-
   receiptHeight: string;
-
   setReceiptHeight: (value: string) => void;
-
   inventory: HWB[];
-
   users: AuthUser[];
-
   selectedUserId: string;
-
   setSelectedUserId: (value: string) => void;
-
   isLoading: boolean;
-
 }
 
-
-
 const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
-
   currentLocation,
-
   getLocName,
-
   setIsScannerOpen,
-
   handleReceipt,
-
-  selectedDeclarationId,
-
-  handleDeclarationSelect,
-
-  pendingDeclarations,
-
+  selectedOrderId,
+  handleOrderSelect,
+  pendingOrders,
   receiptDesc,
-
   setReceiptDesc,
-
   receiptWeight,
-
   setReceiptWeight,
-
   receiptValue,
-
   setReceiptValue,
-
   receiptLength,
-
   setReceiptLength,
-
   receiptWidth,
-
   setReceiptWidth,
-
   receiptHeight,
-
   setReceiptHeight,
-
   inventory,
-
   users,
-
   selectedUserId,
-
   setSelectedUserId,
-
   isLoading,
-
 }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -129,17 +77,17 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
         <form onSubmit={handleReceipt} className="space-y-4">
           <div className="bg-blue-50 p-4 rounded border border-blue-100 mb-4">
             <label className="block text-sm font-bold text-blue-900 mb-2">
-              Link to Declaration (Pre-Alert)
+              Link to Order
             </label>
             <select
-              value={selectedDeclarationId}
-              onChange={handleDeclarationSelect}
+              value={selectedOrderId}
+              onChange={handleOrderSelect}
               className="w-full border border-blue-200 rounded p-2 bg-white text-slate-900"
             >
               <option value="">-- Manual Entry / No Pre-Alert --</option>
-              {pendingDeclarations.map((dec) => (
-                <option key={dec.id} value={dec.id}>
-                  {dec.id} - {dec.user.full_name} ({dec.cargo_details})
+              {pendingOrders.map((order) => (
+                <option key={order.id} value={order.id}>
+                  Order #{order.id} - {order.user.full_name}
                 </option>
               ))}
             </select>
@@ -154,7 +102,7 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
               className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
-              disabled={!!selectedDeclarationId}
+              disabled={!!selectedOrderId}
             >
               <option value="">-- Select a Client --</option>
               {users.map((user) => (
@@ -282,7 +230,7 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
               ) : (
                 <>
                   <CheckCircle size={18} className="mr-2" />
-                  {selectedDeclarationId
+                  {selectedOrderId
                     ? "Verify & Receive Package"
                     : "Generate HWB & Receive"}
                 </>

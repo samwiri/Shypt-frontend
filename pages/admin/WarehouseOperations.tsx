@@ -28,8 +28,6 @@ import { HWB, MAWB } from "../../components/warehouse/types";
 import ReceiptFlow from "../../components/warehouse/ReceiptFlow";
 import ConsolidateFlow from "../../components/warehouse/ConsolidateFlow";
 import DeconsolidateFlow from "../../components/warehouse/DeconsolidateFlow";
-import useCargo from "@/api/cargo/useCargo";
-import { CargoDeclaration } from "@/api/types/cargo";
 import useAuth from "@/api/auth/useAuth";
 import { AuthUser } from "@/api/types/auth";
 import usePackage from "@/api/package/usePackage"; // Added for package operations
@@ -39,13 +37,11 @@ const WarehouseOperations: React.FC = () => {
   const { getOrders } = useOrders();
   const { fetchWareHouseLocations } = useWareHouse();
   const { createConsolidationBatch } = useConsolidation();
-  const { listCargoDeclarations, createCargoDeclaration } = useCargo(); // Added createCargoDeclaration
   const { fetchAllUsers } = useAuth();
   const { addPackageToOrder } = usePackage(); // Added addPackageToOrder
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
-  const [declarations, setDeclarations] = useState<CargoDeclaration[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -61,12 +57,11 @@ const WarehouseOperations: React.FC = () => {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const [warehousesRes, declarationsRes, usersRes] =
-          await Promise.allSettled([
-            fetchWareHouseLocations(),
-            listCargoDeclarations(),
-            fetchAllUsers(),
-          ]);
+        const [warehousesRes, ordersRes, usersRes] = await Promise.allSettled([
+          fetchWareHouseLocations(),
+          getOrders(),
+          fetchAllUsers(),
+        ]);
 
         if (
           warehousesRes.status === "fulfilled" &&
@@ -79,10 +74,10 @@ const WarehouseOperations: React.FC = () => {
           showToast("Failed to load warehouses", "error");
         }
 
-        if (declarationsRes.status === "fulfilled") {
-          setDeclarations(declarationsRes.value.data);
+        if (ordersRes.status === "fulfilled") {
+          setOrders(ordersRes.value.data.data);
         } else {
-          showToast("Failed to load cargo declarations", "error");
+          showToast("Failed to load orders", "error");
         }
 
         if (usersRes.status === "fulfilled") {
@@ -113,7 +108,7 @@ const WarehouseOperations: React.FC = () => {
       }
     };
 
-    if (activeTab === "CONSOLIDATE") {
+    if (activeTab === "CONSOLIDATE" || activeTab === "RECEIPT") {
       fetchOrders();
     }
   }, [activeTab, showToast]);
@@ -126,99 +121,16 @@ const WarehouseOperations: React.FC = () => {
   // --- STATE WITH SAMPLE DATA ---
 
   // 1. Inventory (Pending Consolidation)
-  const [inventory, setInventory] = useState<HWB[]>([
-    {
-      id: "HWB-8821",
-      weight: 12.5,
-      desc: "Laptop Batch A",
-      client: "Acme Corp",
-      value: 2500,
-      status: OrderStatus.RECEIVED,
-      origin: "CN",
-    },
-    {
-      id: "HWB-8822",
-      weight: 4.2,
-      desc: "Fashion Samples",
-      client: "Jane Doe",
-      value: 150,
-      status: OrderStatus.RECEIVED,
-      origin: "CN",
-    },
-    {
-      id: "HWB-8823",
-      weight: 55.0,
-      desc: "Auto Parts",
-      client: "Mechanic Shop Ltd",
-      value: 1200,
-      status: OrderStatus.RECEIVED,
-      origin: "CN",
-    },
-    {
-      id: "HWB-771",
-      weight: 10.5,
-      desc: "Shoes",
-      client: "Alice",
-      value: 200,
-      status: OrderStatus.IN_TRANSIT,
-      origin: "CN",
-    },
-    {
-      id: "HWB-772",
-      weight: 5.0,
-      desc: "Toys",
-      client: "Bob",
-      value: 50,
-      status: OrderStatus.IN_TRANSIT,
-      origin: "CN",
-    },
-    {
-      id: "HWB-661",
-      weight: 8.0,
-      desc: "Books",
-      client: "Charlie",
-      value: 80,
-      status: OrderStatus.IN_TRANSIT,
-      origin: "UK",
-    },
-  ]);
+  const [inventory, setInventory] = useState<HWB[]>([]);
 
   // 2. Active Manifests (MAWBs)
-  const [mawbs, setMawbs] = useState<MAWB[]>([
-    {
-      id: "MAWB-CN-UG-991",
-      origin: "CN",
-      destination: "UG",
-      flightVessel: "CZ-330",
-      carrier: "China Southern",
-      hwbs: ["HWB-771", "HWB-772"],
-      status: "ARRIVED",
-      taxStatus: TaxStatus.UNASSESSED,
-      eta: "2025-03-05",
-      createdDate: "2025-02-28",
-      totalWeight: 15.5,
-    },
-    {
-      id: "MAWB-UK-UG-202",
-      origin: "UK",
-      destination: "UG",
-      flightVessel: "BA-063",
-      carrier: "British Airways",
-      hwbs: ["HWB-661"],
-      status: "IN_TRANSIT",
-      taxStatus: TaxStatus.UNASSESSED,
-      eta: "2025-03-08",
-      createdDate: "2025-03-01",
-      totalWeight: 8.0,
-    },
-  ]);
+  const [mawbs, setMawbs] = useState<MAWB[]>([]);
 
   // UI State
   const [selectedHwbs, setSelectedHwbs] = useState<string[]>([]);
 
   // Receipt Form State
-  const [selectedDeclarationId, setSelectedDeclarationId] =
-    useState<string>("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [receiptWeight, setReceiptWeight] = useState("");
   const [receiptDesc, setReceiptDesc] = useState("");
   const [receiptValue, setReceiptValue] = useState("");
@@ -248,23 +160,22 @@ const WarehouseOperations: React.FC = () => {
   };
 
   // 0. Order Selection Handler
-  const handleDeclarationSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const declarationId = e.target.value;
-    setSelectedDeclarationId(declarationId);
-    fillFormFromDeclaration(declarationId);
+  const handleOrderSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const orderId = e.target.value;
+    setSelectedOrderId(orderId);
+    fillFormFromOrder(orderId);
   };
 
-  const fillFormFromDeclaration = (declarationId: string) => {
-    if (declarationId) {
-      const declaration = declarations.find(
-        (d) => d.id === parseInt(declarationId)
-      );
-      if (declaration) {
-        setReceiptDesc(declaration.cargo_details);
-        setReceiptWeight(declaration.weight?.toString() || "");
-        setReceiptValue(declaration.value.toString());
-        // @ts-ignore
-        setSelectedUserId(declaration.user.id.toString());
+  const fillFormFromOrder = (orderId: string) => {
+    if (orderId) {
+      const order = orders.find((o) => o.id === parseInt(orderId));
+      if (order) {
+        // Pre-fill with receiver info, but package details are still manual
+        setSelectedUserId(order.user.id.toString());
+        // You might not want to pre-fill description, weight, value for a new package
+        // setReceiptDesc(order.packages[0]?.contents || "");
+        // setReceiptWeight(order.packages[0]?.weight.toString() || "");
+        // setReceiptValue(order.packages[0]?.declared_value.toString() || "");
       }
     } else {
       setReceiptDesc("");
@@ -280,28 +191,23 @@ const WarehouseOperations: React.FC = () => {
   // 0.5 Barcode Scanning Logic
   const handleScanCode = (code: string) => {
     setIsScannerOpen(false);
-    // Assuming barcode maps to declaration ID or tracking number
-    const declaration = declarations.find(
-      (d) => d.id.toString() === code || d.tracking_number === code
-    );
+    // Assuming barcode maps to order tracking number
+    const order = orders.find((o) => o.tracking_number === code);
 
-    if (declaration) {
-      if (declaration.location?.code !== currentLocation) {
+    if (order) {
+      if (order.warehouse?.code !== currentLocation) {
         showToast(
-          `Warning: Declaration ${declaration.id} expected in ${
-            declaration.location?.code || "N/A"
+          `Warning: Order ${order.id} expected in ${
+            order.warehouse?.code || "N/A"
           }, not ${currentLocation}`,
           "warning"
         );
       }
-      setSelectedDeclarationId(declaration.id.toString());
-      fillFormFromDeclaration(declaration.id.toString());
-      showToast(
-        `Declaration ${declaration.id} scanned successfully`,
-        "success"
-      );
+      setSelectedOrderId(order.id.toString());
+      fillFormFromOrder(order.id.toString());
+      showToast(`Order ${order.id} scanned successfully`, "success");
     } else {
-      setSelectedDeclarationId("");
+      setSelectedOrderId("");
       setReceiptDesc(`Scanned Item: ${code}`);
       setSelectedUserId("");
       setReceiptWeight("");
@@ -316,45 +222,20 @@ const WarehouseOperations: React.FC = () => {
   // 1. Receipt Handler
   const handleReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedOrderId) {
+      showToast("Please select an order to add a package to.", "error");
+      return;
+    }
 
     setLoading(true);
-    let currentDeclarationId = parseInt(selectedDeclarationId);
-    let packageHwbNumber = `HWB-${Math.floor(Math.random() * 1000000)}`;
+    const packageHwbNumber = `HWB-${Math.floor(Math.random() * 1000000)}`;
 
     try {
       const selectedUser = users.find((u) => u.id === parseInt(selectedUserId));
 
-      if (!selectedDeclarationId) {
-        // No declaration selected, create a new cargo declaration first
-        if (!selectedUserId) {
-          showToast("Please select a client to create a new package.", "error");
-          setLoading(false);
-          return;
-        }
-
-        const newCargoDeclaration = await createCargoDeclaration({
-          user_id: parseInt(selectedUserId),
-          cargo_details: receiptDesc || "General Cargo",
-          weight: parseFloat(receiptWeight) || 0,
-          value: parseFloat(receiptValue) || 0,
-          // @ts-ignore
-          origin_country: currentLocation,
-          // Assuming a default destination for newly created declarations,
-          // or derive from currentLocation if applicable
-          destination_country: currentLocation === "UG" ? "UG" : "UG", // Example: set to UG if not already UG
-          status: "pending", // Initially pending, will become 'received' after package added
-        });
-        currentDeclarationId = newCargoDeclaration.data.id;
-        showToast(
-          `New Declaration ${currentDeclarationId} created.`,
-          "success"
-        );
-      }
-
-      // Now add the package to the (existing or newly created) order/declaration
       const packageData = {
-        order_id: currentDeclarationId,
-        hwb_number: packageHwbNumber, // Generate HWB number
+        order_id: parseInt(selectedOrderId),
+        hwb_number: packageHwbNumber,
         contents: receiptDesc || "General Cargo",
         declared_value: receiptValue,
         weight: parseFloat(receiptWeight),
@@ -362,9 +243,9 @@ const WarehouseOperations: React.FC = () => {
         width: parseFloat(receiptWidth),
         height: parseFloat(receiptHeight),
         location_id: currentLocation,
-        is_fragile: false, // Default or add UI control
-        is_hazardous: false, // Default or add UI control
-        is_damaged: false, // Default or add UI control
+        is_fragile: false,
+        is_hazardous: false,
+        is_damaged: false,
       };
 
       const addPackageResponse = await addPackageToOrder(packageData);
@@ -375,7 +256,7 @@ const WarehouseOperations: React.FC = () => {
           id: newPackage.hwb_number,
           weight: newPackage.weight,
           desc: newPackage.contents,
-          client: selectedUser?.full_name || "Walk-in / Unknown", // Need to get client name from somewhere
+          client: selectedUser?.full_name || "Walk-in / Unknown",
           value: parseFloat(newPackage.declared_value),
           status: OrderStatus.RECEIVED,
           origin: newPackage.location_id,
@@ -384,22 +265,17 @@ const WarehouseOperations: React.FC = () => {
         ...prev,
       ]);
 
-      if (selectedDeclarationId) {
-        // If an existing declaration was used, update its status or remove from pending list
-        setDeclarations((prev) =>
-          prev.filter((d) => d.id !== parseInt(selectedDeclarationId))
-        );
-      } else {
-        // If a new declaration was created, add it to the list of declarations but mark as received
-        setDeclarations((prev) =>
-          prev.map((d) =>
-            d.id === currentDeclarationId ? { ...d, status: "received" } : d
-          )
-        );
-      }
+      // Update the order in the local state
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === parseInt(selectedOrderId)
+            ? { ...o, packages: [...o.packages, newPackage] }
+            : o
+        )
+      );
 
       showToast(
-        `Package ${newPackage.hwb_number} Received & Logged`,
+        `Package ${newPackage.hwb_number} Received & Logged for Order ${selectedOrderId}`,
         "success"
       );
 
@@ -411,7 +287,7 @@ const WarehouseOperations: React.FC = () => {
       setReceiptWidth("");
       setReceiptHeight("");
       setSelectedUserId("");
-      setSelectedDeclarationId("");
+      setSelectedOrderId("");
     } catch (error: any) {
       console.error("Failed to receive package:", error);
       showToast(
@@ -637,8 +513,9 @@ const WarehouseOperations: React.FC = () => {
     (i) => i.status === OrderStatus.RECEIVED && i.origin === currentLocation
   );
 
-  const pendingDeclarations = declarations.filter(
-    (d) => d.status === "pending" && d.location?.code === currentLocation
+  const pendingOrders = orders.filter(
+    (o) =>
+      o.status === "PENDING" && o.warehouse?.code === currentLocation
   );
 
   const outboundManifests = mawbs.filter((m) => m.origin === currentLocation);
@@ -663,7 +540,7 @@ const WarehouseOperations: React.FC = () => {
             onChange={(e) => {
               setCurrentLocation(e.target.value);
               setSelectedHwbs([]);
-              setSelectedDeclarationId("");
+              setSelectedOrderId("");
             }}
             className="bg-slate-700 border-slate-600 text-white text-sm rounded p-2 focus:ring-primary-500"
           >
@@ -726,9 +603,9 @@ const WarehouseOperations: React.FC = () => {
             getLocName={getLocName}
             setIsScannerOpen={setIsScannerOpen}
             handleReceipt={handleReceipt}
-            selectedDeclarationId={selectedDeclarationId}
-            handleDeclarationSelect={handleDeclarationSelect}
-            pendingDeclarations={pendingDeclarations}
+            selectedOrderId={selectedOrderId}
+            handleOrderSelect={handleOrderSelect}
+            pendingOrders={pendingOrders}
             receiptWeight={receiptWeight}
             setReceiptWeight={setReceiptWeight}
             receiptValue={receiptValue}
@@ -900,19 +777,18 @@ const WarehouseOperations: React.FC = () => {
               Tap a code to simulate scan:
             </p>
             <div className="grid grid-cols-2 gap-3">
-              {pendingDeclarations.slice(0, 4).map((declaration) => (
+              {pendingOrders.slice(0, 4).map((order) => (
                 <button
-                  key={declaration.id}
-                  onClick={() => handleScanCode(declaration.id.toString())}
+                  key={order.id}
+                  onClick={() => handleScanCode(order.tracking_number)}
                   className="p-3 border border-slate-300 rounded hover:bg-blue-50 hover:border-blue-400 transition flex flex-col items-center"
                 >
                   <ScanLine size={20} className="mb-1 text-slate-500" />
                   <span className="font-mono text-xs font-bold">
-                    {declaration.id}
+                    {order.id}
                   </span>
                   <span className="text-[10px] text-slate-500 truncate w-full text-center">
-                    {/* @ts-ignore */}
-                    {declaration.user.full_name}
+                    {order.user.full_name}
                   </span>
                 </button>
               ))}
