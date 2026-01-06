@@ -2,30 +2,29 @@ import React from "react";
 import { Layers, X, Plane, FileText, Printer, Navigation } from "lucide-react";
 import StatusBadge from "../UI/StatusBadge";
 import { MAWB } from "./types";
-import { HWB } from "./types";
 
 interface ConsolidateFlowProps {
-  selectedHwbs: string[];
+  selectedPackages: number[];
   handleBulkConsolidateAction: (action: string) => void;
   handleOpenConsolidate: () => void;
   loading: boolean;
-  packagesForConsolidation: HWB[];
+  packagesForConsolidation: { id: string; packageId: number; weight: number; desc: string; client: string; value: number; status: string; origin: string; }[];
   currentLocation: string;
-  setSelectedHwbs: (ids: string[]) => void;
-  toggleHwbSelection: (id: string) => void;
+  setSelectedPackages: (ids: number[]) => void;
+  togglePackageSelection: (id: number) => void;
   outboundManifests: MAWB[];
   handleManifestAction: (action: string, manifest: MAWB) => void;
 }
 
 const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
-  selectedHwbs,
+  selectedPackages,
   handleBulkConsolidateAction,
   handleOpenConsolidate,
   loading,
   packagesForConsolidation,
   currentLocation,
-  setSelectedHwbs,
-  toggleHwbSelection,
+  setSelectedPackages,
+  togglePackageSelection,
   outboundManifests,
   handleManifestAction,
 }) => {
@@ -45,10 +44,10 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
 
           <div className="flex gap-2">
             {/* Bulk Actions for Selection */}
-            {selectedHwbs.length > 0 && (
+            {selectedPackages.length > 0 && (
               <div className="flex items-center gap-2 mr-4 bg-slate-100 px-3 py-1 rounded-lg">
                 <span className="text-xs font-bold text-slate-700">
-                  {selectedHwbs.length} Selected
+                  {selectedPackages.length} Selected
                 </span>
                 <button
                   onClick={() => handleBulkConsolidateAction("REMOVE")}
@@ -60,11 +59,11 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
             )}
             <button
               onClick={handleOpenConsolidate}
-              disabled={selectedHwbs.length === 0}
+              disabled={selectedPackages.length === 0}
               className="bg-primary-600 disabled:bg-slate-300 text-white py-2 px-6 rounded hover:bg-primary-700 flex items-center transition font-medium shadow-sm"
             >
               <Layers size={18} className="mr-2" /> Consolidate (
-              {selectedHwbs.length})
+              {selectedPackages.length})
             </button>
           </div>
         </div>
@@ -77,8 +76,8 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
                   type="checkbox"
                   onChange={(e) => {
                     if (e.target.checked)
-                      setSelectedHwbs(packagesForConsolidation.map((i) => i.id));
-                    else setSelectedHwbs([]);
+                      setSelectedPackages(packagesForConsolidation.map((i) => i.packageId));
+                    else setSelectedPackages([]);
                   }}
                 />
               </th>
@@ -105,16 +104,16 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
             ) : (
               packagesForConsolidation.map((item) => (
                 <tr
-                  key={item.id}
+                  key={item.packageId}
                   className={`border-b border-slate-100 hover:bg-slate-50 ${
-                    selectedHwbs.includes(item.id) ? "bg-blue-50" : ""
+                    selectedPackages.includes(item.packageId) ? "bg-blue-50" : ""
                   }`}
                 >
                   <td className="p-3">
                     <input
                       type="checkbox"
-                      checked={selectedHwbs.includes(item.id)}
-                      onChange={() => toggleHwbSelection(item.id)}
+                      checked={selectedPackages.includes(item.packageId)}
+                      onChange={() => togglePackageSelection(item.packageId)}
                       className="text-primary-600 rounded focus:ring-primary-500"
                     />
                   </td>

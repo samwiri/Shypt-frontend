@@ -20,7 +20,7 @@ import { useToast } from "../../context/ToastContext";
 import { sendStatusNotification } from "../../utils/notificationService";
 import { OrderStatus, TaxStatus } from "../../types";
 import useOrders from "../../api/orders/useOrders";
-import { Order } from "../../api/types/orders";
+import { Order, UpdateOrderStatusPayload } from "../../api/types/orders";
 import useWareHouse from "../../api/warehouse/useWareHouse";
 import { WareHouseLocation } from "../../api/types/warehouse";
 import useConsolidation from "../../api/consolidation/useConsolidation";
@@ -30,18 +30,21 @@ import ConsolidateFlow from "../../components/warehouse/ConsolidateFlow";
 import DeconsolidateFlow from "../../components/warehouse/DeconsolidateFlow";
 import useAuth from "@/api/auth/useAuth";
 import { AuthUser } from "@/api/types/auth";
-import usePackage from "@/api/package/usePackage"; // Added for package operations
+import usePackage from "@/api/package/usePackage";
+import { Consolidation } from "@/api/types/consolidation";
 
 const WarehouseOperations: React.FC = () => {
   const { showToast } = useToast();
-  const { getOrders } = useOrders();
+  const { getOrders, updateOrderStatus } = useOrders();
   const { fetchWareHouseLocations } = useWareHouse();
-  const { createConsolidationBatch } = useConsolidation();
+  const { getConsolidationBatches, createConsolidationBatch } =
+    useConsolidation();
   const { fetchAllUsers } = useAuth();
-  const { addPackageToOrder } = usePackage(); // Added addPackageToOrder
+  const { addPackageToOrder } = usePackage();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
+  const [consolidations, setConsolidations] = useState<Consolidation[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -57,11 +60,13 @@ const WarehouseOperations: React.FC = () => {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const [warehousesRes, ordersRes, usersRes] = await Promise.allSettled([
-          fetchWareHouseLocations(),
-          getOrders(),
-          fetchAllUsers(),
-        ]);
+        const [warehousesRes, ordersRes, usersRes, consolidationsRes] =
+          await Promise.allSettled([
+            fetchWareHouseLocations(),
+            getOrders(),
+            fetchAllUsers(),
+            getConsolidationBatches(),
+          ]);
 
         if (
           warehousesRes.status === "fulfilled" &&
@@ -75,15 +80,22 @@ const WarehouseOperations: React.FC = () => {
         }
 
         if (ordersRes.status === "fulfilled") {
-          setOrders(ordersRes.value.data.data);
+          setOrders(ordersRes.value.data?.data || []);
         } else {
           showToast("Failed to load orders", "error");
         }
 
         if (usersRes.status === "fulfilled") {
-          setUsers(usersRes.value.data);
+          setUsers(usersRes.value.data || []);
         } else {
           showToast("Failed to load users", "error");
+        }
+
+        if (consolidationsRes.status === "fulfilled") {
+          // @ts-ignore
+          setConsolidations(consolidationsRes.value.data || []);
+        } else {
+          showToast("Failed to load consolidations", "error");
         }
       } catch (error) {
         showToast("Failed to load initial data", "error");
@@ -95,13 +107,28 @@ const WarehouseOperations: React.FC = () => {
   }, [showToast]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchAllData = async () => {
       setLoading(true);
       try {
-        const response = await getOrders();
-        setOrders(response.data.data);
+        const [ordersRes, consolidationsRes] = await Promise.allSettled([
+          getOrders(),
+          getConsolidationBatches(),
+        ]);
+        if (ordersRes.status === "fulfilled") {
+          setOrders(ordersRes.value.data?.data || []);
+        } else {
+          showToast("Could not fetch orders.", "error");
+          console.error(ordersRes.reason);
+        }
+        if (consolidationsRes.status === "fulfilled") {
+          // @ts-ignore
+          setConsolidations(consolidationsRes.value.data || []);
+        } else {
+          showToast("Could not fetch consolidations.", "error");
+          console.error(consolidationsRes.reason);
+        }
       } catch (err) {
-        showToast("Could not fetch orders.", "error");
+        showToast("An error occurred while fetching data.", "error");
         console.error(err);
       } finally {
         setLoading(false);
@@ -109,7 +136,7 @@ const WarehouseOperations: React.FC = () => {
     };
 
     if (activeTab === "CONSOLIDATE" || activeTab === "RECEIPT") {
-      fetchOrders();
+      fetchAllData();
     }
   }, [activeTab, showToast]);
 
@@ -122,12 +149,8 @@ const WarehouseOperations: React.FC = () => {
 
   // 1. Inventory (Pending Consolidation)
   const [inventory, setInventory] = useState<HWB[]>([]);
-
-  // 2. Active Manifests (MAWBs)
   const [mawbs, setMawbs] = useState<MAWB[]>([]);
-
-  // UI State
-  const [selectedHwbs, setSelectedHwbs] = useState<string[]>([]);
+  const [selectedPackages, setSelectedPackages] = useState<number[]>([]);
 
   // Receipt Form State
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
@@ -279,6 +302,40 @@ const WarehouseOperations: React.FC = () => {
         "success"
       );
 
+      // Now, update the order status to "RECEIVED"
+      try {
+        const orderIdNum = parseInt(selectedOrderId);
+        const orderToUpdate = orders.find((o) => o.id === orderIdNum);
+
+        if (orderToUpdate) {
+          const payload: UpdateOrderStatusPayload = {
+            order_id: orderIdNum,
+            status: OrderStatus.RECEIVED,
+            notes: `Package received at warehouse: ${currentLocation}`,
+            user_id: orderToUpdate.user_id,
+            location: currentLocation,
+          };
+          await updateOrderStatus(payload);
+
+          // Update local state for order status
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === orderIdNum ? { ...o, status: OrderStatus.RECEIVED } : o
+            )
+          );
+          showToast(
+            `Order status for #${orderIdNum} updated to "Received".`,
+            "success"
+          );
+        }
+      } catch (statusUpdateError) {
+        console.error("Failed to update order status:", statusUpdateError);
+        showToast(
+          "Package added, but failed to update order status.",
+          "warning"
+        );
+      }
+
       // Clear form
       setReceiptWeight("");
       setReceiptDesc("");
@@ -299,15 +356,14 @@ const WarehouseOperations: React.FC = () => {
     }
   };
 
-  // 2. Consolidation Logic
-  const toggleHwbSelection = (id: string) => {
-    setSelectedHwbs((prev) =>
+  const togglePackageSelection = (id: number) => {
+    setSelectedPackages((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
   const handleOpenConsolidate = () => {
-    if (selectedHwbs.length === 0) {
+    if (selectedPackages.length === 0) {
       showToast("Please select at least one package", "warning");
       return;
     }
@@ -316,7 +372,7 @@ const WarehouseOperations: React.FC = () => {
 
   const handleBulkConsolidateAction = (action: string) => {
     if (action === "REMOVE") {
-      setSelectedHwbs([]);
+      setSelectedPackages([]);
       showToast("Selection cleared.", "info");
     }
   };
@@ -332,7 +388,7 @@ const WarehouseOperations: React.FC = () => {
     const departureDate = formData.get("departure_date") as string;
 
     const selectedItems = packagesForConsolidation?.filter((i) =>
-      selectedHwbs.includes(i.id)
+      selectedPackages.includes(i.packageId)
     );
     const totalWeight = selectedItems.reduce(
       (sum, item) => sum + Number(item.weight),
@@ -354,13 +410,13 @@ const WarehouseOperations: React.FC = () => {
       const res = await createConsolidationBatch(consolidationData);
       const newMawbData = res.data;
 
-      const newMawb: MAWB = {
-        id: newMawbData.mawb_number,
+      const newMawb = {
+        id: newMawbData.id,
         origin: currentLocation,
         destination: dest, // Assuming destination is still relevant for display
         flightVessel: newMawbData.container_flight_number,
         carrier: "", // Carrier is not in the new model, leave empty or adjust
-        hwbs: selectedHwbs,
+        hwbs: selectedItems.map((p) => p.id),
         status: newMawbData.status as any,
         taxStatus: TaxStatus.UNASSESSED, // Default for new MAWB
         eta: "Pending", // Or use a date from response if available
@@ -368,6 +424,7 @@ const WarehouseOperations: React.FC = () => {
         totalWeight: parseFloat(newMawbData.total_weight),
       };
 
+      // @ts-ignore
       setMawbs([newMawb, ...mawbs]);
 
       // Refetch orders or update inventory status locally
@@ -395,7 +452,7 @@ const WarehouseOperations: React.FC = () => {
       setOrders(newOrders);
 
       showToast(res.message || "Manifest Created Successfully", "success");
-      setSelectedHwbs([]);
+      setSelectedPackages([]);
       setIsConsolidateOpen(false);
 
       triggerNav(`/admin/freight/${newMawbData.id}`);
@@ -492,18 +549,18 @@ const WarehouseOperations: React.FC = () => {
       .filter(
         (order) =>
           order.status === "RECEIVED" &&
-          order.origin_country === currentLocation
+          order.warehouse.code === currentLocation
       )
       .flatMap((order) =>
         order.packages.map((pkg) => ({
-          id: pkg.hwb_number,
-          packageId: pkg.id,
+          id: pkg.hwb_number, // This remains string for display in ConsolidateFlow
+          packageId: pkg.id, // This is the actual package ID (number)
           weight: pkg.weight,
           desc: pkg.contents,
           client: order.user.full_name,
           value: parseFloat(pkg.declared_value),
           status: order.status,
-          origin: order.origin_country,
+          origin: order.warehouse.code,
         }))
       );
   }, [orders, currentLocation]);
@@ -514,11 +571,26 @@ const WarehouseOperations: React.FC = () => {
   );
 
   const pendingOrders = orders.filter(
-    (o) =>
-      o.status === "PENDING" && o.warehouse?.code === currentLocation
+    (o) => o.status === "PENDING" && o.warehouse?.code === currentLocation
   );
 
-  const outboundManifests = mawbs.filter((m) => m.origin === currentLocation);
+  const outboundManifests = useMemo(
+    () =>
+      consolidations.map((c) => ({
+        id: c.id,
+        origin: currentLocation,
+        destination: "UG",
+        flightVessel: c.container_flight_number,
+        carrier: "",
+        hwbs: c.packages.map((p) => p.hwb_number),
+        status: c.status,
+        taxStatus: TaxStatus.UNASSESSED,
+        eta: "Pending",
+        createdDate: c.created_at,
+        totalWeight: parseFloat(c.total_weight),
+      })),
+    [consolidations, currentLocation]
+  );
 
   return (
     <div className="space-y-6">
@@ -539,7 +611,7 @@ const WarehouseOperations: React.FC = () => {
             value={currentLocation}
             onChange={(e) => {
               setCurrentLocation(e.target.value);
-              setSelectedHwbs([]);
+              setSelectedPackages([]);
               setSelectedOrderId("");
             }}
             className="bg-slate-700 border-slate-600 text-white text-sm rounded p-2 focus:ring-primary-500"
@@ -628,15 +700,15 @@ const WarehouseOperations: React.FC = () => {
 
         {activeTab === "CONSOLIDATE" && (
           <ConsolidateFlow
-            selectedHwbs={selectedHwbs}
+            selectedPackages={selectedPackages}
             handleBulkConsolidateAction={handleBulkConsolidateAction}
             handleOpenConsolidate={handleOpenConsolidate}
             loading={loading}
-            // @ts-ignore
             packagesForConsolidation={packagesForConsolidation}
             currentLocation={currentLocation}
-            setSelectedHwbs={setSelectedHwbs}
-            toggleHwbSelection={toggleHwbSelection}
+            setSelectedPackages={setSelectedPackages}
+            togglePackageSelection={togglePackageSelection}
+            // @ts-ignore
             outboundManifests={outboundManifests}
             handleManifestAction={handleManifestAction}
           />
@@ -723,11 +795,11 @@ const WarehouseOperations: React.FC = () => {
             </div>
           </div>
           <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
-            Consolidating <strong>{selectedHwbs.length}</strong> items. Total
-            Weight:{" "}
+            Consolidating <strong>{selectedPackages.length}</strong> items.
+            Total Weight:{" "}
             <strong>
               {packagesForConsolidation
-                .filter((i) => selectedHwbs.includes(i.id))
+                .filter((i) => selectedPackages.includes(i.packageId))
                 .reduce((acc, c) => acc + Number(c.weight), 0)
                 .toFixed(2)}{" "}
               kg
