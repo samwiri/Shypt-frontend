@@ -35,6 +35,7 @@ export interface Invoice {
   due_date: string;
   created_at: string;
   updated_at: string;
+  currency: string;
   order: Order | null;
   user?: AuthUser;
   line_items: LineItem[];
