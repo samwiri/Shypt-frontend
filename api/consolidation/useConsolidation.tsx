@@ -43,12 +43,29 @@ const useConsolidation = () => {
     return response;
   };
 
+  const addConsolidationBatchPackages = async (
+    batch_id: number,
+    package_id: number
+  ) => {
+    const { data: response } = await client.post(
+      `api/batch-packages`,
+      { batch_id: batch_id, package_id },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response;
+  };
+
   return {
     getConsolidationBatches,
     getConsolidationBatch,
     createConsolidationBatch,
     updateConsolidationBatch,
     deleteConsolidationBatch,
+    addConsolidationBatchPackages,
   };
 };
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Layers, X, Plane, FileText, Printer, Navigation } from "lucide-react";
 import StatusBadge from "../UI/StatusBadge";
 import { MAWB } from "./types";
+import { Consolidation } from "@/api/types/consolidation";
 
 interface ConsolidateFlowProps {
   selectedPackages: number[];
@@ -21,8 +22,8 @@ interface ConsolidateFlowProps {
   currentLocation: string;
   setSelectedPackages: (ids: number[]) => void;
   togglePackageSelection: (id: number) => void;
-  outboundManifests: any[];
-  handleManifestAction: (action: string, manifest: MAWB) => void;
+  outboundManifests: Consolidation[];
+  handleManifestAction: (action: string, manifest: Consolidation) => void;
 }
 
 const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
@@ -180,26 +181,31 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
                         onClick={() => handleManifestAction("VIEW", m)}
                         className="hover:underline text-left"
                       >
-                        {m.mawb_number}
+                        MAWB-{m.id}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                      {m.destination}
+                      UG
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="font-medium text-slate-800">
-                        {m.carrier}
+                        {m.transport_mode}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {m.flightVessel}
+                        {m.container_flight_number}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <div className="font-medium">
-                        {Number(m.totalWeight).toFixed(2)} kg
+                        {m?.packages.length &&
+                          m.packages.reduce(
+                            (sum, pkg) => sum + pkg.weight,
+                            0
+                          )}{" "}
+                        kg
                       </div>
                       <div className="text-xs text-slate-500">
-                        {m.hwbs.length} pcs
+                        {m.packages.length} pcs
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -221,7 +227,7 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
                         >
                           <Printer size={16} />
                         </button>
-                        {m.status === "CONSOLIDATED" && (
+                        {m.status === "OPEN" && (
                           <button
                             onClick={() => handleManifestAction("DEPART", m)}
                             className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded"

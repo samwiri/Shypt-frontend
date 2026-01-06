@@ -37,8 +37,11 @@ const WarehouseOperations: React.FC = () => {
   const { showToast } = useToast();
   const { getOrders, updateOrderStatus } = useOrders();
   const { fetchWareHouseLocations } = useWareHouse();
-  const { getConsolidationBatches, createConsolidationBatch } =
-    useConsolidation();
+  const {
+    getConsolidationBatches,
+    createConsolidationBatch,
+    addConsolidationBatchPackages,
+  } = useConsolidation();
   const { fetchAllUsers } = useAuth();
   const { addPackageToOrder } = usePackage();
 
@@ -412,7 +415,6 @@ const WarehouseOperations: React.FC = () => {
         container_flight_number: flight,
         departure_date: departureDate,
         total_weight: totalWeight.toFixed(2),
-        package_ids: packageIds,
         status: "OPEN",
         warehouse_location_id: selectedWarehouse.id,
       };
@@ -420,6 +422,28 @@ const WarehouseOperations: React.FC = () => {
       // @ts-ignore
       const res = await createConsolidationBatch(consolidationData);
       const newMawbData = res.data;
+      const batchId = newMawbData.id;
+
+      // Add packages to the batch
+      if (batchId && packageIds.length > 0) {
+        try {
+          showToast(
+            `Created batch ${batchId}. Adding ${packageIds.length} packages...`,
+            "info"
+          );
+          await Promise.all(
+            packageIds.map((pkgId) =>
+              addConsolidationBatchPackages(batchId, pkgId)
+            )
+          );
+        } catch (err) {
+          showToast(
+            `Failed to add all packages to batch ${batchId}. Please check the batch details.`,
+            "error"
+          );
+          console.error("Error adding packages to consolidation batch:", err);
+        }
+      }
 
       const newMawb = {
         id: newMawbData.id,
@@ -476,7 +500,7 @@ const WarehouseOperations: React.FC = () => {
   };
 
   // Quick Action Handler for Outbound Manifest Table
-  const handleManifestAction = (action: string, manifest: MAWB) => {
+  const handleManifestAction = (action: string, manifest: Consolidation) => {
     switch (action) {
       case "VIEW":
         triggerNav(`/admin/freight/${manifest.id}`);
@@ -489,12 +513,12 @@ const WarehouseOperations: React.FC = () => {
         document.title = originalTitle;
         break;
       case "DEPART":
-        setMawbs((prev) =>
-          prev.map((m) =>
-            m.id === manifest.id ? { ...m, status: "IN_TRANSIT" } : m
+        setConsolidations((prev) =>
+          prev.map((c) =>
+            c.id === manifest.id ? { ...c, status: "DEPARTED" } : c
           )
         );
-        showToast(`${manifest.id} marked as In Transit`, "success");
+        showToast(`${manifest.id} marked as Departed`, "success");
         break;
     }
   };
@@ -588,22 +612,8 @@ const WarehouseOperations: React.FC = () => {
   );
 
   const outboundManifests = useMemo(
-    () =>
-      consolidations.map((c) => ({
-        id: c.id,
-        origin: currentLocation,
-        destination: "UG",
-        flightVessel: c.container_flight_number,
-        carrier: "",
-        hwbs: c.packages.map((p) => p.hwb_number),
-        mawb_number: c.mawb_number,
-        status: c.status,
-        taxStatus: TaxStatus.UNASSESSED,
-        eta: "Pending",
-        createdDate: c.created_at,
-        totalWeight: parseFloat(c.total_weight),
-      })),
-    [consolidations, currentLocation]
+    () => consolidations,
+    [consolidations]
   );
 
   return (
