@@ -9,6 +9,7 @@ import {
   Plus,
   DollarSign,
   Globe,
+  Info, // Added for SYSTEM notifications
 } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import { AuthUser } from "@/api/types/auth";
@@ -16,6 +17,8 @@ import useAuth from "@/api/auth/useAuth";
 import useCargo from "@/api/cargo/useCargo";
 import { useToast } from "@/context/ToastContext";
 import { CargoDeclaration } from "@/api/types/cargo";
+import useNotifications from "@/api/notifications/useNotifications"; // Import useNotifications hook
+import { notificationDetails } from "@/api/types/notifications"; // Import notificationDetails type
 
 const ClientDashboard: React.FC = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -24,6 +27,12 @@ const ClientDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { listCargoDeclarations } = useCargo();
   const { showToast } = useToast();
+  const { fetchUserNotifications } = useNotifications(); // Use the notifications hook
+
+  const [latestNotifications, setLatestNotifications] = useState<
+    notificationDetails[]
+  >([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -46,13 +55,61 @@ const ClientDashboard: React.FC = () => {
         setLoading(false);
       }
     };
+
+    const fetchNotifications = async () => {
+      try {
+        const notificationres = await fetchUserNotifications();
+        setLatestNotifications(notificationres.data.messages.slice(0, 3));
+        setUnreadNotificationsCount(notificationres.data.unread_messages_count);
+      } catch (error) {
+        showToast("Failed to fetch notifications", "error");
+        console.error(error);
+      }
+    };
+
     fetchUser();
     fetchPackages();
+    fetchNotifications();
   }, []);
 
   // Navigation Helper
   const triggerNav = (path: string) => {
     window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "ORDER":
+        return (
+          <div className="bg-blue-50 p-2 rounded-full">
+            <Package size={16} className="text-blue-600" />
+          </div>
+        );
+      case "FINANCE":
+        return (
+          <div className="bg-green-50 p-2 rounded-full">
+            <CreditCard size={16} className="text-green-600" />
+          </div>
+        );
+      case "SHOPPING":
+        return (
+          <div className="bg-purple-50 p-2 rounded-full">
+            <ShoppingBag size={16} className="text-purple-600" />
+          </div>
+        );
+      case "SYSTEM":
+        return (
+          <div className="bg-slate-50 p-2 rounded-full">
+            <Info size={16} className="text-slate-600" />
+          </div>
+        );
+      default:
+        return (
+          <div className="bg-slate-50 p-2 rounded-full">
+            <Info size={16} className="text-slate-600" />
+          </div>
+        );
+    }
   };
 
   return (
@@ -215,53 +272,39 @@ const ClientDashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center">
             Latest Updates
-            <span className="ml-2 bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
-              3 New
-            </span>
+            {unreadNotificationsCount > 0 && (
+              <span className="ml-2 bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
+                {unreadNotificationsCount} New
+              </span>
+            )}
           </h3>
           <div className="space-y-6">
-            <div className="flex space-x-3">
-              <div className="mt-1 min-w-[10px] min-h-[10px] rounded-full bg-blue-500 ring-4 ring-blue-50"></div>
-              <div>
-                <p className="text-sm text-slate-800 font-bold">
-                  Package Arrived at Warehouse
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  HWB-8832 is now ready for payment and release.
-                </p>
-                <span className="text-xs text-slate-400 mt-1 block">
-                  2 hours ago
-                </span>
+            {latestNotifications.length > 0 ? (
+              latestNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className="flex space-x-3 cursor-pointer"
+                  onClick={() => triggerNav("/client/notifications")}
+                >
+                  {getNotificationIcon(notification.type)}
+                  <div>
+                    <p className="text-sm text-slate-800 font-bold">
+                      {notification.title}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                      {notification.body.replace(/<[^>]*>?/gm, "")}
+                    </p>
+                    <span className="text-xs text-slate-400 mt-1 block">
+                      {new Date(notification.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-slate-500">
+                No recent notifications.
               </div>
-            </div>
-            <div className="flex space-x-3">
-              <div className="mt-1 min-w-[10px] min-h-[10px] rounded-full bg-green-500 ring-4 ring-green-50"></div>
-              <div>
-                <p className="text-sm text-slate-800 font-bold">
-                  Quotation Approved
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  Your request for "Gaming Monitor" has been purchased.
-                </p>
-                <span className="text-xs text-slate-400 mt-1 block">
-                  1 day ago
-                </span>
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <div className="mt-1 min-w-[10px] min-h-[10px] rounded-full bg-yellow-500 ring-4 ring-yellow-50"></div>
-              <div>
-                <p className="text-sm text-slate-800 font-bold">
-                  Invoice Generated
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  New invoice #INV-9921 for $45.00 is available.
-                </p>
-                <span className="text-xs text-slate-400 mt-1 block">
-                  2 days ago
-                </span>
-              </div>
-            </div>
+            )}
           </div>
           <button
             onClick={() => triggerNav("/client/notifications")}
