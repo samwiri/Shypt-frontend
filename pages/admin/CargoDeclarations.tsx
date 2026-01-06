@@ -92,7 +92,7 @@ const CargoDeclarations: React.FC = () => {
       if (declarationsRes.status === "fulfilled") {
         setDeclarations(declarationsRes.value.data);
       } else {
-        showToast("Failed to fetch cargo declarations", "error");
+        showToast("Failed to fetch delivery requests", "error");
       }
       if (warehousesRes.status === "fulfilled") {
         setWarehouses(warehousesRes.value.data);
@@ -116,13 +116,13 @@ const CargoDeclarations: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this declaration?")) {
+    if (window.confirm("Are you sure you want to delete this request?")) {
       try {
         await deleteCargoDeclaration(id);
         setDeclarations((prev) => prev.filter((d) => d.id !== id));
-        showToast("Declaration deleted successfully", "success");
+        showToast("Request deleted successfully", "success");
       } catch (error) {
-        showToast("Failed to delete declaration", "error");
+        showToast("Failed to delete request", "error");
       }
     }
   };
@@ -187,7 +187,7 @@ const CargoDeclarations: React.FC = () => {
         };
 
         await createCargoDeclaration(payload);
-        showToast("Cargo Declaration created successfully!", "success");
+        showToast("Delivery Request created successfully!", "success");
       } else if (formMode === "EDIT" && editingDeclaration) {
         const payload: UpdateCargoDeclarationPayload = {
           internal_curier: formData.get("internal_curier") as string,
@@ -209,7 +209,7 @@ const CargoDeclarations: React.FC = () => {
       setIsFormOpen(false);
     } catch (error) {
       showToast(
-        `Failed to ${formMode === "ADD" ? "create" : "update"} declaration.`,
+        `Failed to ${formMode === "ADD" ? "create" : "update"} request.`,
         "error"
       );
     } finally {
@@ -219,7 +219,7 @@ const CargoDeclarations: React.FC = () => {
 
   const columns: Column<CargoDeclaration>[] = [
     {
-      header: "Declaration ID",
+      header: "Request ID",
       accessor: (declaration) => (
         <span className="text-primary-600 font-medium hover:underline">
           {declaration.id}
@@ -247,7 +247,7 @@ const CargoDeclarations: React.FC = () => {
       sortable: true,
     },
     {
-      header: "Cargo / Tracking",
+      header: "Delivery / Tracking",
       accessor: (cd) => (
         <div className="max-w-xs">
           <div className="font-semibold text-slate-800 truncate">
@@ -291,7 +291,7 @@ const CargoDeclarations: React.FC = () => {
               handleEdit(declaration);
             }}
             className="text-slate-400 hover:text-blue-600 p-1"
-            title="Edit Declaration"
+            title="Edit Request"
           >
             <Edit size={18} />
           </button>
@@ -311,7 +311,7 @@ const CargoDeclarations: React.FC = () => {
               handleDelete(declaration.id);
             }}
             className="text-slate-400 hover:text-red-600 p-1"
-            title="Delete Declaration"
+            title="Delete Request"
           >
             <Trash2 size={18} />
           </button>
@@ -346,10 +346,10 @@ const CargoDeclarations: React.FC = () => {
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700">
-          Cargo Details
+          Delivery Details
         </label>
         <textarea
-          name="cargo_details"
+          name="delivery_details"
           defaultValue={editingDeclaration?.cargo_details}
           className="mt-1 w-full border border-slate-300 rounded-md p-2 bg-white text-slate-900"
           rows={3}
@@ -558,7 +558,7 @@ const CargoDeclarations: React.FC = () => {
 
         <div className="space-y-6">
           <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
-            4. Cargo Details
+            4. Delivery Details
           </label>
 
           <div>
@@ -729,7 +729,7 @@ const CargoDeclarations: React.FC = () => {
               <Loader2 className="animate-spin h-5 w-5 mr-3" /> Submitting...
             </>
           ) : (
-            "Submit Cargo Declaration"
+            "Submit Delivery Request"
           )}
         </button>
       </div>
@@ -741,10 +741,10 @@ const CargoDeclarations: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">
-            Cargo Declarations
+            Delivery Requests
           </h2>
           <p className="text-slate-500 text-sm">
-            Manage all client cargo declarations.
+            Manage all client delivery requests.
           </p>
         </div>
       </div>
@@ -772,9 +772,9 @@ const CargoDeclarations: React.FC = () => {
         columns={columns}
         loading={loading}
         onRowClick={(declaration) =>
-          triggerNav(`/admin/cargo-declarations/${declaration.id}`)
+          triggerNav(`/admin/requests/${declaration.id}`)
         }
-        title="All Declarations"
+        title="All Requests"
         searchPlaceholder="Search by tracking #, client, or description..."
         selectable={true}
         // @ts-ignore
@@ -787,7 +787,7 @@ const CargoDeclarations: React.FC = () => {
             className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700 transition flex items-center shadow-sm"
           >
             <Plus size={16} className="mr-2" />
-            Create Declaration
+            Create Delivery Request
           </button>
         }
       />
@@ -795,9 +795,7 @@ const CargoDeclarations: React.FC = () => {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={
-          formMode === "ADD" ? "Create New Declaration" : "Edit Declaration"
-        }
+        title={formMode === "ADD" ? "Create New Request" : "Edit Request"}
         size="lg"
       >
         {formMode === "ADD" ? renderAddModal() : renderEditModal()}

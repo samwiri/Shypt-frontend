@@ -45,7 +45,7 @@ const STATUS_FLOW = [
   { status: "DECLINED", label: "Declined", icon: XCircle, terminal: true },
 ];
 
-const ClientOrderDetails: React.FC<OrderDetailsProps> = ({ id, onBack }) => {
+const DeliveryRequestDetails: React.FC<OrderDetailsProps> = ({ id, onBack }) => {
   const { showToast } = useToast();
   const { getCargoDeclaration } = useCargo();
 
@@ -373,4 +373,4 @@ const ClientOrderDetails: React.FC<OrderDetailsProps> = ({ id, onBack }) => {
   );
 };
 
-export default ClientOrderDetails;
+export default DeliveryRequestDetails;

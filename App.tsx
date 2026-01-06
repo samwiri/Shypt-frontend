@@ -52,7 +52,9 @@ import Settings from "./pages/admin/Settings";
 import ClientDashboard from "./pages/client/ClientDashboard";
 import ClientProfile from "./pages/client/ClientProfile";
 import MyOrders from "./pages/client/MyOrders";
-import ClientOrderDetails from "./pages/client/OrderDetails";
+import MyDeliveryRequests from "./pages/client/MyDeliveryRequests";
+import DeliveryRequestDetails from "./pages/client/DeliveryRequestDetails";
+import ClientOrderDetails from "./pages/client/ClientOrderDetails";
 import ShoppingRequests from "./pages/client/ShoppingRequests";
 import ClientShoppingDetails from "./pages/client/ShoppingDetails";
 import ShippingCalculator from "./pages/client/ShippingCalculator";
@@ -109,10 +111,13 @@ const AppRoutes: React.FC = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="profile" element={<AdminProfile />} />
         <Route path="notifications" element={<AdminNotifications />} />
-        <Route path="cargo-declarations" element={<CargoDeclarations />} />
-        <Route path="cargo-declarations/:orderId" element={<OrderDetailsWrapper />} />
+        <Route path="requests" element={<CargoDeclarations />} />
+        <Route path="requests/:orderId" element={<OrderDetailsWrapper />} />
         <Route path="client-orders" element={<ClientOrders />} />
-        <Route path="client-orders/:orderId" element={<AdminClientOrderDetailsWrapper />} />
+        <Route
+          path="client-orders/:orderId"
+          element={<AdminClientOrderDetailsWrapper />}
+        />
         <Route path="warehouse" element={<WarehouseOperations />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/:id" element={<InventoryDetailsWrapper />} />
@@ -148,6 +153,11 @@ const AppRoutes: React.FC = () => {
         <Route path="profile" element={<ClientProfile />} />
         <Route path="orders" element={<MyOrders />} />
         <Route path="orders/:id" element={<ClientOrderDetailsWrapper />} />
+        <Route path="requests" element={<MyDeliveryRequests />} />
+        <Route
+          path="requests/:id"
+          element={<DeliveryRequestDetailsWrapper />}
+        />
         <Route path="shopping" element={<ShoppingRequests />} />
         <Route path="shopping/:id" element={<ClientShoppingDetailsWrapper />} />
         <Route path="calculator" element={<ShippingCalculator />} />
@@ -317,12 +327,23 @@ const AdminClientOrderDetailsWrapper = () => {
   );
 };
 
+const DeliveryRequestDetailsWrapper = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  return (
+    <DeliveryRequestDetails
+      id={id || ""}
+      onBack={() => navigate("/client/requests")}
+    />
+  );
+};
+
 const ClientOrderDetailsWrapper = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   return (
     <ClientOrderDetails
-      id={id || ""}
+      orderId={id || ""}
       onBack={() => navigate("/client/orders")}
     />
   );
