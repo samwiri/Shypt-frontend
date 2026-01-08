@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Save, User, Lock, Bell, Shield, Mail, MapPin } from "lucide-react";
+import { Save, User, Lock, Bell, Mail, MapPin, X } from "lucide-react";
 import { useToast } from "../../context/ToastContext";
 import useAuth from "@/api/auth/useAuth";
 import { AuthUser } from "@/api/types/auth";
@@ -14,6 +14,7 @@ const ClientSettings: React.FC = () => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [showAddressWarning, setShowAddressWarning] = useState(false);
 
   // Profile form states
   const [fullName, setFullName] = useState("");
@@ -54,6 +55,10 @@ const ClientSettings: React.FC = () => {
         setCity(addressParts[1] || "");
         setRegion(addressParts[2] || "Central"); // Fallback to default
         setCountry(addressParts[3] || "Uganda"); // Fallback to default
+
+        if (!userData.address || !addressParts[0] || !addressParts[1]) {
+          setShowAddressWarning(true);
+        }
       } catch (error) {
         showToast("Failed to load user data.", "error");
       }
@@ -109,6 +114,7 @@ const ClientSettings: React.FC = () => {
     try {
       await updateUserProfile(payload);
       showToast("Profile updated successfully", "success");
+      setShowAddressWarning(false); // Dismiss warning if address is saved
     } catch (error) {
       showToast("Failed to update profile.", "error");
     } finally {
@@ -162,6 +168,24 @@ const ClientSettings: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {showAddressWarning && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-800 flex justify-between items-center shadow-sm">
+          <div className="flex items-center">
+            <MapPin size={20} className="mr-3" />
+            <p className="font-medium">
+              Welcome! Your account is almost ready, Please complete your
+              delivery address details to start.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddressWarning(false)}
+            className="text-yellow-600 hover:text-yellow-900"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">

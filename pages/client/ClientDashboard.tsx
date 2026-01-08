@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
   Package,
-  Truck,
   ShoppingBag,
   CreditCard,
   ChevronRight,
   Search,
   Plus,
-  DollarSign,
   Globe,
   Info, // Added for SYSTEM notifications
 } from "lucide-react";
@@ -34,48 +32,37 @@ const ClientDashboard: React.FC = () => {
   >([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
+  // Navigation Helper
+  const triggerNav = (path: string) => {
+    window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
+  };
+
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await getUserProfile();
-        setUser(response.data);
-      } catch (error) {
-        console.error("Failed to fetch user profile", error);
-      }
-    };
-    const fetchPackages = async () => {
+    const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const response = await listCargoDeclarations();
-        setPackages(response.data.slice(0, 3));
+        const [userRes, packagesRes, notificationsRes] = await Promise.all([
+          getUserProfile(),
+          listCargoDeclarations(),
+          fetchUserNotifications(),
+        ]);
+
+        setUser(userRes.data);
+        setPackages(packagesRes.data.slice(0, 3));
+        setLatestNotifications(notificationsRes.data.messages.slice(0, 3));
+        setUnreadNotificationsCount(
+          notificationsRes.data.unread_messages_count
+        );
       } catch (error) {
-        showToast("Failed to fetch packages", "error");
+        showToast("Failed to fetch dashboard data", "error");
         console.error(error);
       } finally {
         setLoading(false);
       }
     };
 
-    const fetchNotifications = async () => {
-      try {
-        const notificationres = await fetchUserNotifications();
-        setLatestNotifications(notificationres.data.messages.slice(0, 3));
-        setUnreadNotificationsCount(notificationres.data.unread_messages_count);
-      } catch (error) {
-        showToast("Failed to fetch notifications", "error");
-        console.error(error);
-      }
-    };
-
-    fetchUser();
-    fetchPackages();
-    fetchNotifications();
+    fetchDashboardData();
   }, []);
-
-  // Navigation Helper
-  const triggerNav = (path: string) => {
-    window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
-  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -112,6 +99,34 @@ const ClientDashboard: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <svg
+          className="animate-spin h-8 w-8 text-slate-500"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <span className="ml-3 text-slate-500">Loading...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
@@ -132,7 +147,21 @@ const ClientDashboard: React.FC = () => {
             <p className="font-mono text-sm">
               {user ? `${user.full_name} (CL-${user.id})` : "..."}
             </p>
-            <p className="text-sm w-[80%]">{user?.address}</p>
+            <div className="text-sm w-[80%]">
+              {user?.address ? (
+                (() => {
+                  const parts = user.address.split(",").map((p) => p.trim());
+                  return (
+                    <>
+                      {parts[0] && <p>{parts[0]}</p>}
+                      {parts.length > 1 && <p>{parts.slice(1).join(", ")}</p>}
+                    </>
+                  );
+                })()
+              ) : (
+                <p>No address on file.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

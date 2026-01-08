@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
-import { Bell, Menu } from 'lucide-react';
-import { useAuthContext } from '@/context/AuthContext';
+import React, { useState, useEffect } from "react";
+import Sidebar from "./Sidebar";
+import { Bell, Menu } from "lucide-react";
+import { useAuthContext } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
+import useAuth from "@/api/auth/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -9,39 +12,85 @@ interface MainLayoutProps {
   onNavigate: (path: string) => void;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNavigate }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  currentPath,
+  onNavigate,
+}) => {
   const { user } = useAuthContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+  const { showToast } = useToast();
+  const { getUserProfile } = useAuth();
+  const navigate = useNavigate();
+
   useEffect(() => {
     const handleNav = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail) {
-            onNavigate(customEvent.detail);
-        }
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        onNavigate(customEvent.detail);
+      }
     };
-    window.addEventListener('app-navigate', handleNav);
-    return () => window.removeEventListener('app-navigate', handleNav);
+    window.addEventListener("app-navigate", handleNav);
+    return () => window.removeEventListener("app-navigate", handleNav);
   }, [onNavigate]);
 
-  const isAdmin = user?.user_type === 'super_user' || user?.user_type === 'staff';
+  useEffect(() => {
+    const isAdmin =
+      user?.user_type === "super_user" || user?.user_type === "staff";
+    if (isAdmin || currentPath === "/client/settings") {
+      return;
+    }
+
+    const fetchUserAndCheck = async () => {
+      try {
+        const response = await getUserProfile();
+        const fetchedUser = response.data;
+        if (fetchedUser) {
+          const address = fetchedUser.address;
+          const addressParts = address
+            ? address.split(",").map((part) => part.trim())
+            : [];
+          if (
+            !address ||
+            addressParts.length < 2 ||
+            !addressParts[0] ||
+            !addressParts[1]
+          ) {
+            showToast(
+              "Welcome! Please complete your address details to get started.",
+              "info"
+            );
+            navigate("/client/settings");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile", error);
+        showToast("Could not verify user profile. Please try again.", "error");
+      }
+    };
+
+    fetchUserAndCheck();
+  }, [user, currentPath, getUserProfile, showToast, navigate]);
+
+  const isAdmin =
+    user?.user_type === "super_user" || user?.user_type === "staff";
 
   const handleProfileClick = () => {
-      const profilePath = isAdmin ? '/admin/profile' : '/client/profile';
-      onNavigate(profilePath);
+    const profilePath = isAdmin ? "/admin/profile" : "/client/profile";
+    onNavigate(profilePath);
   };
 
   const handleBellClick = () => {
-      if (isAdmin) {
-          onNavigate('/admin/notifications');
-      } else {
-          onNavigate('/client/notifications');
-      }
+    if (isAdmin) {
+      onNavigate("/admin/notifications");
+    } else {
+      onNavigate("/client/notifications");
+    }
   };
-  
+
   const getInitials = (name: string | undefined) => {
-    if (!name) return 'U';
-    const names = name.split(' ');
+    if (!name) return "U";
+    const names = name.split(" ");
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
@@ -51,16 +100,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Sidebar */}
-      <Sidebar 
+      <Sidebar
         currentPath={currentPath}
         onNavigate={onNavigate}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
-      
+
       {/* Overlay for mobile */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
@@ -79,34 +128,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, currentPath, onNaviga
             </button>
 
             <h2 className="text-lg font-semibold text-slate-700 capitalize hidden sm:block">
-              {currentPath.split('/').pop()?.replace(/-/g, ' ')}
+              {currentPath.split("/").pop()?.replace(/-/g, " ")}
             </h2>
           </div>
-           <div className="flex items-center space-x-6">
-              {/* Notification Bell */}
-              <button 
-                onClick={handleBellClick}
-                className="relative p-2 text-slate-400 hover:bg-slate-100 rounded-full transition group"
-                title="Notifications"
-              >
-                <Bell size={20} className="group-hover:text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-              </button>
+          <div className="flex items-center space-x-6">
+            {/* Notification Bell */}
+            <button
+              onClick={handleBellClick}
+              className="relative p-2 text-slate-400 hover:bg-slate-100 rounded-full transition group"
+              title="Notifications"
+            >
+              <Bell size={20} className="group-hover:text-slate-600" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+            </button>
 
-              {/* User Profile */}
-              <div 
-                className="flex items-center space-x-4 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition"
-                onClick={handleProfileClick}
-              >
-                  <div className="text-right hidden md:block">
-                    <p className="text-sm font-bold text-slate-800 truncate">{user?.full_name}</p>
-                    <p className="text-xs text-slate-500 capitalize">{user?.user_type.replace('_', ' ')}</p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center text-xs font-bold text-primary-700">
-                      {getInitials(user?.full_name)}
-                  </div>
+            {/* User Profile */}
+            <div
+              className="flex items-center space-x-4 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition"
+              onClick={handleProfileClick}
+            >
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-bold text-slate-800 truncate">
+                  {user?.full_name}
+                </p>
+                <p className="text-xs text-slate-500 capitalize">
+                  {user?.user_type.replace("_", " ")}
+                </p>
               </div>
-           </div>
+              <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center text-xs font-bold text-primary-700">
+                {getInitials(user?.full_name)}
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* Main Content */}
