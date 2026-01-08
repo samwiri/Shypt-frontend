@@ -23,6 +23,7 @@ import {
   SecureHeader,
   SecurityFooter,
 } from "../../components/UI/SecurityFeatures";
+import usePackage from "../../api/package/usePackage";
 
 interface AdminClientOrderDetailsProps {
   orderId: string;
@@ -47,11 +48,21 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
 }) => {
   const { showToast } = useToast();
   const { getOrder, updateOrderStatus, deleteOrder } = useOrders();
+  const { addPackageToOrder } = usePackage();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStatusModalOpen, setStatusModalOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const [isAddPackageModalOpen, setAddPackageModalOpen] = useState(false);
+  const [packageContents, setPackageContents] = useState("");
+  const [packageWeight, setPackageWeight] = useState("");
+  const [packageValue, setPackageValue] = useState("");
+  const [packageLength, setPackageLength] = useState("");
+  const [packageWidth, setPackageWidth] = useState("");
+  const [packageHeight, setPackageHeight] = useState("");
+  const [isAddingPackage, setIsAddingPackage] = useState(false);
 
   const fetchDetails = async () => {
     try {
@@ -71,6 +82,60 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
       fetchDetails();
     }
   }, [orderId]);
+
+  const handleAddPackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+
+    setIsAddingPackage(true);
+    const packageHwbNumber = `HWB-${Math.floor(Math.random() * 1000000)}`;
+
+    try {
+      // @ts-ignore
+      const locationId = order.warehouse?.code || order.origin_country;
+      if (!locationId) {
+        showToast("Order has no location information. Cannot add package.", "error");
+        setIsAddingPackage(false);
+        return;
+      }
+      
+      const packageData = {
+        order_id: order.id,
+        hwb_number: packageHwbNumber,
+        contents: packageContents || "General Cargo",
+        declared_value: packageValue,
+        weight: parseFloat(packageWeight),
+        length: packageLength ? parseFloat(packageLength) : undefined,
+        width: packageWidth ? parseFloat(packageWidth) : undefined,
+        height: packageHeight ? parseFloat(packageHeight) : undefined,
+        location_id: locationId,
+        is_fragile: false,
+        is_hazardous: false,
+        is_damaged: false,
+      };
+
+      await addPackageToOrder(packageData);
+      showToast("Package added successfully", "success");
+      
+      setAddPackageModalOpen(false);
+      setPackageContents("");
+      setPackageWeight("");
+      setPackageValue("");
+      setPackageLength("");
+      setPackageWidth("");
+      setPackageHeight("");
+
+      await fetchDetails();
+    } catch (error: any) {
+      console.error("Failed to add package:", error);
+      showToast(
+        `Failed to add package: ${'message' in error ? error.message : "Unknown error"}`,
+        "error"
+      );
+    } finally {
+      setIsAddingPackage(false);
+    }
+  };
 
   const handleStatusUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -209,7 +274,7 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
           </button>
           <div>
             <h2 className="text-2xl font-bold text-slate-800">
-              Order #{order.id}
+              {order.tracking_number}
             </h2>
             <p className="text-slate-500 text-sm">
               Client: {order.user.full_name} ({order.user.email})
@@ -251,6 +316,12 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
           className="flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-sm transition font-medium"
         >
           <CheckCircle size={14} className="mr-2" /> Update Status
+        </button>
+        <button
+          onClick={() => setAddPackageModalOpen(true)}
+          className="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-sm transition font-medium"
+        >
+          <Package size={14} className="mr-2" /> Add Package
         </button>
       </div>
 
@@ -352,11 +423,11 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
                         <div>
                           <p className="text-sm font-medium text-slate-700">
                             {/* @ts-ignore */}
-                            {pkg.description}
+                            {pkg.contents || pkg.description}
                           </p>
                           <p className="text-xs text-slate-500">
                             {/* @ts-ignore */}
-                            Weight: {pkg.weight}kg, Value: ${pkg.value}
+                            Weight: {pkg.weight}kg, Value: ${pkg.declared_value || pkg.value}
                           </p>
                         </div>
                       </div>
@@ -460,6 +531,115 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
               disabled={isUpdatingStatus}
             >
               {isUpdatingStatus ? "Updating..." : "Update Status"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isAddPackageModalOpen}
+        onClose={() => setAddPackageModalOpen(false)}
+        title="Add New Package to Order"
+      >
+        <form onSubmit={handleAddPackage} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Description
+            </label>
+            <input
+              required
+              type="text"
+              value={packageContents}
+              onChange={(e) => setPackageContents(e.target.value)}
+              className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+              placeholder="e.g. 5x Cartons of Shoes"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Weight (kg)
+              </label>
+              <input
+                required
+                type="number"
+                step="0.1"
+                value={packageWeight}
+                onChange={(e) => setPackageWeight(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Declared Value ($)
+              </label>
+              <input
+                required
+                type="number"
+                step="0.01"
+                value={packageValue}
+                onChange={(e) => setPackageValue(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Length (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={packageLength}
+                onChange={(e) => setPackageLength(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Width (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={packageWidth}
+                onChange={(e) => setPackageWidth(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Height (cm)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={packageHeight}
+                onChange={(e) => setPackageHeight(e.target.value)}
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                placeholder="0.0"
+              />
+            </div>
+          </div>
+          <div className="pt-4 flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => setAddPackageModalOpen(false)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isAddingPackage}
+            >
+              {isAddingPackage ? "Adding..." : "Add Package"}
             </button>
           </div>
         </form>
