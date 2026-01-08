@@ -283,6 +283,31 @@ const AssistedShopping: React.FC = () => {
 
   const columns: Column<AssistedShoppingItem>[] = [
     {
+      header: "Created At",
+      accessor: (req) => {
+        const formatDateTime = (dateString: string | undefined | null) => {
+          if (!dateString) return "N/A";
+          try {
+            const date = new Date(dateString);
+            return new Intl.DateTimeFormat('en-US', { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric', 
+              hour: 'numeric', 
+              minute: 'numeric',
+              hour12: true 
+            }).format(date);
+          } catch (e) {
+            console.error("Error formatting date:", e);
+            return dateString; 
+          }
+        };
+        return <span className="text-sm text-slate-600">{formatDateTime(req.created_at)}</span>;
+      },
+      sortKey: "created_at",
+      sortable: true,
+    },
+    {
       header: "Request ID",
       accessor: (req) => (
         <span className="font-mono text-primary-600 font-bold hover:underline">

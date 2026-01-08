@@ -115,6 +115,13 @@ const Invoices: React.FC = () => {
     }
   };
 
+  const formatMoney = (amount: number) => {
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   const columns: Column<InvoiceRowData>[] = [
     {
       header: "Invoice #",
@@ -141,7 +148,7 @@ const Invoices: React.FC = () => {
       header: "Amount",
       accessor: (inv) => {
         const symbol = inv.currency === 'UGX' ? 'UGX ' : '$';
-        return `${symbol}${inv.amount.toFixed(2)}`;
+        return `${symbol}${formatMoney(inv.amount)}`;
       },
       sortKey: "amount",
       sortable: true,
@@ -175,13 +182,20 @@ const Invoices: React.FC = () => {
     },
   ];
 
-  const outstandingAmount = useMemo(
-    () =>
-      invoices
-        .filter((i) => i.status === "UNPAID")
-        .reduce((sum, i) => sum + i.amount, 0),
-    [invoices]
-  );
+  const { usdOutstanding, ugxOutstanding } = useMemo(() => {
+    let usd = 0;
+    let ugx = 0;
+    invoices
+      .filter((i) => i.status === "UNPAID")
+      .forEach((i) => {
+        if (i.currency === "UGX") {
+          ugx += i.amount;
+        } else {
+          usd += i.amount;
+        }
+      });
+    return { usdOutstanding: usd, ugxOutstanding: ugx };
+  }, [invoices]);
 
   if (isLoadingInvoices) {
     return (
@@ -223,14 +237,26 @@ const Invoices: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
-          <p className="text-slate-500 text-sm font-medium">
-            Total Outstanding
-          </p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">
-            ${outstandingAmount.toFixed(2)}
-          </p>
-        </div>
+        {usdOutstanding > 0 && (
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+            <p className="text-slate-500 text-sm font-medium">
+              Total Outstanding (USD)
+            </p>
+            <p className="text-2xl font-bold text-slate-800 mt-1">
+              ${formatMoney(usdOutstanding)}
+            </p>
+          </div>
+        )}
+        {ugxOutstanding > 0 && (
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+            <p className="text-slate-500 text-sm font-medium">
+              Total Outstanding (UGX)
+            </p>
+            <p className="text-2xl font-bold text-slate-800 mt-1">
+              UGX {formatMoney(ugxOutstanding)}
+            </p>
+          </div>
+        )}
         <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
           <p className="text-slate-500 text-sm font-medium">
             Pending Verification

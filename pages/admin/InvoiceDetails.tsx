@@ -64,8 +64,30 @@ const InvoiceDetails: React.FC<InvoiceDetailsProps> = ({
       ) || 0,
     [invoice]
   );
-  const tax = 0.0;
+  const tax = 0.0; // Assuming tax is always 0 for now as per code
   const total = subtotal + tax;
+
+  const getCurrencySymbol = (currencyCode: string | undefined): string => {
+    switch (currencyCode) {
+      case "UGX":
+        return "UGX ";
+      case "USD":
+      default:
+        return "$";
+    }
+  };
+
+  const currencySymbol = getCurrencySymbol(invoice?.currency);
+
+  const formatMoney = (amount: number | string | undefined | null) => {
+    if (amount === undefined || amount === null) return "N/A";
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return "N/A";
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   const handleAction = async (action: string) => {
     if (!invoice) return;
@@ -265,7 +287,8 @@ const InvoiceDetails: React.FC<InvoiceDetailsProps> = ({
                     Amount Due
                   </p>
                   <p className="text-xl font-bold text-slate-800">
-                    ${total.toFixed(2)}
+                    {currencySymbol}
+                    {formatMoney(total)}
                   </p>
                 </div>
               </div>
@@ -289,7 +312,8 @@ const InvoiceDetails: React.FC<InvoiceDetailsProps> = ({
                       {item.description}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-900 print:px-0">
-                      ${Number(item.unit_price).toFixed(2)}
+                      {currencySymbol}
+                      {formatMoney(item.unit_price)}
                     </td>
                   </tr>
                 ))}
@@ -300,15 +324,24 @@ const InvoiceDetails: React.FC<InvoiceDetailsProps> = ({
               <div className="w-full md:w-1/2 space-y-2">
                 <div className="flex justify-between text-sm text-slate-600">
                   <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>
+                    {currencySymbol}
+                    {formatMoney(subtotal)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600">
                   <span>Tax (0%)</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>
+                    {currencySymbol}
+                    {formatMoney(tax)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-slate-800 border-t border-slate-200 pt-2 mt-2 print:border-slate-800">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>
+                    {currencySymbol}
+                    {formatMoney(total)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -354,7 +387,8 @@ const InvoiceDetails: React.FC<InvoiceDetailsProps> = ({
                             : "text-slate-800"
                         }`}
                       >
-                        ${Number(payment.amount).toFixed(2)}
+                        {currencySymbol}
+                        {formatMoney(payment.amount)}
                       </span>
                       <span className="text-slate-500 ml-2">
                         via {payment.method}
