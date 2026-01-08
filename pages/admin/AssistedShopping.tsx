@@ -319,7 +319,13 @@ const AssistedShopping: React.FC = () => {
     },
     {
       header: "Client",
-      accessor: (req) => req.user.full_name,
+      accessor: (req) => (
+        <div>
+          <div className="font-bold text-slate-800">{req.user.full_name}</div>
+          <div className="text-xs text-slate-500">{req.user.email}</div>
+          <div className="text-xs text-slate-500">{req.user.phone}</div>
+        </div>
+      ),
       // @ts-ignore
       sortKey: "user.full_name",
       sortable: true,
