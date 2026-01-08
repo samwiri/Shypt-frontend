@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Mail,
   Phone,
@@ -15,67 +15,69 @@ import { useToast } from "../../context/ToastContext";
 import { User } from "../../types";
 import { DataTable, Column } from "../../components/UI/DataTable";
 import useAuth from "@/api/auth/useAuth";
+import { RegisterPayload } from "@/api/types/auth";
 
 const Users: React.FC = () => {
   const { showToast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { fetchCrmCustomers } = useAuth();
+  const { fetchCrmCustomers, register } = useAuth();
 
   // Modal State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadCustomers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetchCrmCustomers();
+      const mappedUsers = response.data.map(
+        (
+          user: {
+            balance: number;
+            email: string;
+            phone: string;
+            status: string;
+          },
+          index
+        ): User => {
+          const nameFromEmail = user.email.split("@")[0];
+          const capitalizedName =
+            nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
+          return {
+            id: `CL-${index + 1}`,
+            name: capitalizedName,
+            email: user.email,
+            phone: user.phone,
+            companyName: "",
+            tinNumber: "",
+            address: {
+              line1: "N/A",
+              city: "",
+              country: "",
+            },
+            // @ts-ignore
+            role: "CLIENT",
+            // @ts-ignore
+            status: user.status.toUpperCase(),
+            preferredWarehouse: "CN",
+            joinedDate: new Date().toISOString().split("T")[0],
+            balance: user.balance,
+          };
+        }
+      );
+      setUsers(mappedUsers);
+    } catch (error) {
+      showToast("Failed to fetch customers", "error");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchCrmCustomers, showToast]);
 
   useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetchCrmCustomers();
-        const mappedUsers = response.data.map(
-          (
-            user: {
-              balance: number;
-              email: string;
-              phone: string;
-              status: string;
-            },
-            index
-          ): User => {
-            const nameFromEmail = user.email.split("@")[0];
-            const capitalizedName =
-              nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
-            return {
-              id: `CL-${index + 1}`,
-              name: capitalizedName,
-              email: user.email,
-              phone: user.phone,
-              companyName: "",
-              tinNumber: "",
-              address: {
-                line1: "N/A",
-                city: "",
-                country: "",
-              },
-              // @ts-ignore
-              role: "CLIENT",
-              // @ts-ignore
-              status: user.status.toUpperCase(),
-              preferredWarehouse: "CN",
-              joinedDate: new Date().toISOString().split("T")[0],
-              balance: user.balance,
-            };
-          }
-        );
-        setUsers(mappedUsers);
-      } catch (error) {
-        showToast("Failed to fetch customers", "error");
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadCustomers();
   }, []);
 
@@ -112,46 +114,79 @@ const Users: React.FC = () => {
     );
   };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-
-    // Construct new user object from comprehensive form
-    const newUser: User = {
-      id:
-        isEditMode && selectedUser
-          ? selectedUser.id
-          : `CL-${Math.floor(Math.random() * 9000) + 1000}`,
-      name: formData.get("fullName") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      companyName: formData.get("companyName") as string,
-      tinNumber: formData.get("tinNumber") as string,
-      address: {
-        line1: formData.get("addressLine1") as string,
-        line2: formData.get("addressLine2") as string,
-        city: formData.get("city") as string,
-        region: formData.get("region") as string,
-        country: "Uganda", // Defaulting for this system
-      },
-      role: "CLIENT" as any,
-      status: (formData.get("status") as any) || "ACTIVE",
-      preferredWarehouse: formData.get("preferredWarehouse") as any,
-      joinedDate:
-        isEditMode && selectedUser
-          ? selectedUser.joinedDate
-          : new Date().toISOString().split("T")[0],
-      balance: isEditMode && selectedUser ? selectedUser.balance : 0,
-    };
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    setIsSubmitting(true);
 
     if (isEditMode) {
-      setUsers((prev) => prev.map((u) => (u.id === newUser.id ? newUser : u)));
+      const updatedUser: User = {
+        id: selectedUser!.id,
+        name: formData.get("fullName") as string,
+        email: formData.get("email") as string,
+        phone: formData.get("phone") as string,
+        companyName: formData.get("companyName") as string,
+        tinNumber: formData.get("tinNumber") as string,
+        address: {
+          line1: formData.get("addressLine1") as string,
+          city: formData.get("city") as string,
+          region: formData.get("region") as string,
+          country: "Uganda",
+        },
+        role: "CLIENT" as any,
+        status: (formData.get("status") as any) || "ACTIVE",
+        preferredWarehouse: "CN" as any,
+        joinedDate: selectedUser!.joinedDate,
+        balance: selectedUser!.balance,
+      };
+      setUsers((prev) =>
+        prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+      );
       showToast("Client profile updated successfully", "success");
+      setIsFormOpen(false);
+      setIsSubmitting(false);
     } else {
-      setUsers((prev) => [...prev, newUser]);
-      showToast("New client registered successfully", "success");
+      const payload: RegisterPayload = {
+        full_name: formData.get("fullName") as string,
+        email: formData.get("email") as string,
+        phone: formData.get("phone") as string,
+        password: formData.get("password") as string,
+        password_confirmation: formData.get("password_confirmation") as string,
+        tin: formData.get("tinNumber") as string,
+        street: formData.get("addressLine1") as string,
+        city: formData.get("city") as string,
+        region: formData.get("region") as string,
+        country: "Uganda",
+      };
+      payload.address = `${payload.street}, ${payload.city}, ${payload.region}, ${payload.country}`;
+
+      try {
+        const response = await register(payload);
+        if (response && response.data) {
+          showToast(
+            response.message || "New client registered successfully",
+            "success"
+          );
+          setIsFormOpen(false);
+          loadCustomers();
+          form.reset();
+        } else {
+          showToast(
+            response.message || "Failed to register new client.",
+            "error"
+          );
+        }
+      } catch (error: any) {
+        showToast(
+          error?.response?.data?.message ||
+            "An unexpected error occurred during registration.",
+          "error"
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
     }
-    setIsFormOpen(false);
   };
 
   // --- COLUMN DEFINITIONS ---
@@ -374,23 +409,40 @@ const Users: React.FC = () => {
                   placeholder="+256..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Preferred Warehouse
-                </label>
-                <select
-                  name="preferredWarehouse"
-                  defaultValue={selectedUser?.preferredWarehouse || "CN"}
-                  className="w-full border border-slate-300 bg-white text-slate-900 rounded p-2 mt-1"
-                >
-                  <option value="CN">Guangzhou (China)</option>
-                  <option value="US">New York (USA)</option>
-                  <option value="UK">London (UK)</option>
-                  <option value="AE">Dubai (UAE)</option>
-                </select>
-              </div>
             </div>
           </div>
+
+          {!isEditMode && (
+            <div>
+              <h4 className="text-sm font-bold text-slate-800 uppercase border-b pb-2 mb-4">
+                Set Password
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    required
+                    name="password"
+                    type="password"
+                    className="w-full border border-slate-300 bg-white text-slate-900 rounded p-2 mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    required
+                    name="password_confirmation"
+                    type="password"
+                    className="w-full border border-slate-300 bg-white text-slate-900 rounded p-2 mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Section 2: Business Info */}
           <div>
@@ -439,17 +491,6 @@ const Users: React.FC = () => {
                   required
                   name="addressLine1"
                   defaultValue={selectedUser?.address?.line1}
-                  type="text"
-                  className="w-full border border-slate-300 bg-white text-slate-900 rounded p-2 mt-1"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">
-                  Street Address Line 2
-                </label>
-                <input
-                  name="addressLine2"
-                  defaultValue={selectedUser?.address?.line2}
                   type="text"
                   className="w-full border border-slate-300 bg-white text-slate-900 rounded p-2 mt-1"
                 />
@@ -525,9 +566,14 @@ const Users: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 shadow-sm font-medium"
+              disabled={isSubmitting}
+              className="px-6 py-2 bg-slate-800 text-white rounded hover:bg-slate-700 shadow-sm font-medium disabled:bg-slate-500"
             >
-              {isEditMode ? "Update Client" : "Register Client"}
+              {isSubmitting
+                ? "Submitting..."
+                : isEditMode
+                ? "Update Client"
+                : "Register Client"}
             </button>
           </div>
         </form>

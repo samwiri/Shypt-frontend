@@ -32,6 +32,10 @@ export interface RegisterPayload {
   tin?: string;
   address?: string;
   passport?: string;
+  street?: string;
+  city?: string;
+  region?: string;
+  country?: string;
 }
 
 export interface AuthUser {
@@ -43,6 +47,10 @@ export interface AuthUser {
   tin: string;
   passport: string;
   address: string;
+  street?: string;
+  city?: string;
+  region?: string;
+  country?: string;
   otp: string;
   status: string;
   user_type: "super_user" | "user" | "staff";
