@@ -32,8 +32,17 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { getAssistedShopping, updateAssistedShopping } = useAssistedShopping();
-  const { createInvoice, addItemToInvoice, recordInvoicePayment } =
-    useInvoice();
+  const { createInvoice, addItemToInvoice } = useInvoice();
+
+  const triggerNav = (path: string) => {
+    window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
+  };
+
+  const formatUgx = (amount: number) => {
+    return `UGX ${amount.toLocaleString("en-US", {
+      maximumFractionDigits: 0,
+    })}`;
+  };
 
   const fetchRequestDetails = async () => {
     try {
@@ -64,7 +73,9 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
         0
       ) || 0;
 
-    if (confirm(`Accept quote and pay $${total.toFixed(2)}?`)) {
+    if (
+      confirm(`Accept quote and proceed to invoice for ${formatUgx(total)}?`)
+    ) {
       setIsPaying(true);
       try {
         // 1. Create Invoice
@@ -72,6 +83,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           user_id: request.user.id,
           type: "OTHER",
           due_date: new Date().toISOString().split("T")[0],
+          currency: "UGX",
         });
         // @ts-ignore
         const invoice = invoiceResponse.data;
@@ -86,32 +98,20 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           });
         }
 
-        // 3. Record Payment for the new invoice
-        await recordInvoicePayment({
-          invoice_id: invoice.id,
-          amount: total,
-          method: "CASH",
-          // paid_at: new Date().toISOString(),
-          assisted_shopping_id: request.id,
-        });
+        // // 3. Update shopping request status
+        // const payload: UpdateAssistedShoppingPayload = {
+        //   name: request.name,
+        //   url: request.url,
+        //   quantity: request.quantity,
+        //   notes: request.notes,
+        //   status: "invoiced",
+        // };
+        // await updateAssistedShopping(request.id, payload);
 
-        // 4. Update shopping request status
-        const payload: UpdateAssistedShoppingPayload = {
-          name: request.name,
-          url: request.url,
-          quantity: request.quantity,
-          notes: request.notes,
-          status: "paid",
-        };
-        await updateAssistedShopping(request.id, payload);
-
-        showToast(
-          "Payment successful! We will purchase your item shortly.",
-          "success"
-        );
-        await fetchRequestDetails();
+        showToast("Invoice created! Redirecting to payment.", "success");
+        triggerNav(`/client/invoices/${invoice.id}`);
       } catch (error) {
-        showToast("Payment failed. Please try again.", "error");
+        showToast("Failed to create invoice. Please try again.", "error");
       } finally {
         setIsPaying(false);
       }
@@ -287,22 +287,22 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Item Cost</span>
-                    <span className="font-mono">${itemCost.toFixed(2)}</span>
+                    <span className="font-mono">{formatUgx(itemCost)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Domestic Shipping</span>
                     <span className="font-mono">
-                      ${domesticShipping.toFixed(2)}
+                      {formatUgx(domesticShipping)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Service Fee</span>
-                    <span className="font-mono">${serviceFee.toFixed(2)}</span>
+                    <span className="font-mono">{formatUgx(serviceFee)}</span>
                   </div>
                   <div className="border-t border-slate-200 pt-3 mt-2 flex justify-between font-bold text-lg">
                     <span>Total Payable</span>
                     <span className="text-primary-600">
-                      ${quoteTotal.toFixed(2)}
+                      {formatUgx(quoteTotal)}
                     </span>
                   </div>
 

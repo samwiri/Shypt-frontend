@@ -68,6 +68,12 @@ const AssistedShopping: React.FC = () => {
   const { fetchWareHouseLocations } = useWareHouse();
   const { createCargoDeclaration, uploadCargoDeclarationFiles } = useCargo();
 
+  const formatUgx = (amount: number) => {
+    return `UGX ${amount.toLocaleString("en-US", {
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
   const fetchRequests = async () => {
     try {
       setIsLoading(true);
@@ -369,7 +375,7 @@ const AssistedShopping: React.FC = () => {
           (acc, q) => acc + q.unit_price * q.quantity,
           0
         );
-        return total ? `$${total.toFixed(2)}` : "-";
+        return total ? formatUgx(total) : "-";
       },
       className: "text-right font-bold",
     },
@@ -444,7 +450,7 @@ const AssistedShopping: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Item Net Cost ($)
+                Item Net Cost (UGX)
               </label>
               <input
                 required
@@ -456,7 +462,7 @@ const AssistedShopping: React.FC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Domestic Ship ($)
+                Domestic Ship (UGX)
               </label>
               <input
                 required
@@ -470,15 +476,15 @@ const AssistedShopping: React.FC = () => {
           <div className="bg-slate-50 p-4 rounded-xl space-y-2 text-sm border border-slate-100">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>${(quoteCost + quoteShip).toFixed(2)}</span>
+              <span>{formatUgx(quoteCost + quoteShip)}</span>
             </div>
             <div className="flex justify-between text-primary-600 font-bold">
               <span>Service Fee (10%):</span>
-              <span>${((quoteCost + quoteShip) * 0.1).toFixed(2)}</span>
+              <span>{formatUgx((quoteCost + quoteShip) * 0.1)}</span>
             </div>
             <div className="flex justify-between text-lg font-black text-slate-900 border-t pt-2">
               <span>Final Quote:</span>
-              <span>${((quoteCost + quoteShip) * 1.1).toFixed(2)}</span>
+              <span>{formatUgx((quoteCost + quoteShip) * 1.1)}</span>
             </div>
           </div>
           <button
@@ -634,7 +640,7 @@ const AssistedShopping: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Declared Value ($)
+                    Declared Value (UGX)
                   </label>
                   <div className="relative">
                     <DollarSign

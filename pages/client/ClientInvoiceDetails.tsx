@@ -306,12 +306,20 @@ const ClientInvoiceDetails: React.FC<InvoiceDetailsProps> = ({
             <Printer size={16} className="mr-2" /> Print
           </button>
           {invoice.status === "PENDING" || invoice.status === "UNPAID" ? (
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-bold flex items-center shadow-md transition transform hover:-translate-y-0.5"
+            <a
+              href={`${import.meta.env.VITE_API_URL}/invoice_payment/${
+                invoice.invoice_number
+              }`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <CreditCard size={16} className="mr-2" /> Pay Now
-            </button>
+              <button
+                // onClick={() => setShowPaymentModal(true)}
+                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-bold flex items-center shadow-md transition transform hover:-translate-y-0.5"
+              >
+                <CreditCard size={16} className="mr-2" /> Pay Now
+              </button>
+            </a>
           ) : (
             <button
               disabled

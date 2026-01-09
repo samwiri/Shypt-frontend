@@ -46,6 +46,12 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
 
   const { getAssistedShopping, updateAssistedShopping } = useAssistedShopping();
 
+  const formatUgx = (amount: number) => {
+    return `UGX ${amount.toLocaleString("en-US", {
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
   const fetchRequestDetails = async () => {
     try {
       setIsLoading(true);
@@ -237,12 +243,11 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
                     Item details
                   </p>
                   <p className="font-bold text-slate-900 text-lg">
-                    {request.name}
+                    {request.name} (x{request.quantity})
                   </p>
                   <p className="text-sm text-slate-600 mt-1">{request.notes}</p>
                 </div>
               </div>
-
               {request.status === "purchased" && (
                 <div className="mb-10 bg-slate-900 text-white p-6 rounded-2xl shadow-xl ring-1 ring-slate-800">
                   <h4 className="flex items-center text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-4">
@@ -275,7 +280,6 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
                   </div>
                 </div>
               )}
-
               <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 print:bg-transparent print:border-slate-800">
                 <div className="flex items-center gap-2 mb-4 text-xs font-black text-slate-400 uppercase tracking-widest">
                   <DollarSign size={14} /> Financial Audit
@@ -287,16 +291,16 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
                         {quote.item_name} (x{quote.quantity})
                       </span>
                       <span className="font-mono">
-                        ${(quote.unit_price * quote.quantity).toFixed(2)}
+                        {formatUgx(quote.unit_price * quote.quantity)}
                       </span>
                     </div>
                   ))}
                   <div className="flex justify-between font-black text-xl text-slate-900 border-t border-slate-200 pt-4 mt-2 print:border-slate-800">
                     <span>TOTAL COLLECTED</span>
-                    <span>${quoteTotal.toFixed(2)}</span>
+                    <span>{formatUgx(quoteTotal)}</span>
                   </div>
                 </div>
-              </div>
+              </div>{" "}
               <div className="hidden print:block">
                 <SecurityFooter
                   type="ORIGINAL"

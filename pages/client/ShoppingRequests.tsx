@@ -66,6 +66,12 @@ const ShoppingRequests: React.FC = () => {
     }
   };
 
+  const formatUgx = (amount: number) => {
+    return `UGX ${amount.toLocaleString("en-US", {
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
   const handleAcceptQuote = (
     e: React.MouseEvent,
     req: AssistedShoppingItem
@@ -125,7 +131,7 @@ const ShoppingRequests: React.FC = () => {
           (acc, q) => acc + q.unit_price * q.quantity,
           0
         );
-        return quoteAmount ? `$${quoteAmount.toFixed(2)}` : "-";
+        return quoteAmount ? formatUgx(quoteAmount) : "-";
       },
       className: "text-right font-medium",
     },
