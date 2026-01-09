@@ -12,11 +12,13 @@ import {
   FileText,
   Loader2,
   Trash2,
+  Eye,
 } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import { useToast } from "../../context/ToastContext";
 import useOrders from "../../api/orders/useOrders";
 import { Order, UpdateOrderStatusPayload } from "../../api/types/orders";
+import { Package as PackageType } from "../../api/types/package";
 import Modal from "../../components/UI/Modal";
 import {
   Watermark,
@@ -25,6 +27,7 @@ import {
 } from "../../components/UI/SecurityFeatures";
 import usePackage from "../../api/package/usePackage";
 import useInvoice from "../../api/invoices/useInvoice";
+import client from "../../api";
 
 // Interfaces for Invoice Preview
 interface LineItemData {
@@ -237,7 +240,8 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
 }) => {
   const { showToast } = useToast();
   const { getOrder, updateOrderStatus, deleteOrder } = useOrders();
-  const { addPackageToOrder } = usePackage();
+  const { addPackageToOrder, updateOrderPackage, addPackageImages } =
+    usePackage();
   const { createInvoice, addItemToInvoice, sendInvoiceByEmail } = useInvoice();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -259,16 +263,81 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
     useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  const [invoiceCurrency, setInvoiceCurrency] = useState("USD");
+  const [invoiceCurrency, setInvoiceCurrency] = useState("UGX");
+
+  const [isEditPackageModalOpen, setEditPackageModalOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<PackageType | null>(
+    null
+  );
+
+  const [isUploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadingPackageId, setUploadingPackageId] = useState<number | null>(
+    null
+  );
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+
+  const [isViewPackageModalOpen, setViewPackageModalOpen] = useState(false);
+  const [viewingPackage, setViewingPackage] = useState<PackageType | null>(
+    null
+  );
 
   const triggerNav = (path: string) => {
     window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
+  };
+
+  const handleOpenViewModal = (pkg: PackageType) => {
+    setViewingPackage(pkg);
+    setViewPackageModalOpen(true);
+  };
+
+  const handleOpenEditModal = (pkg: PackageType) => {
+    setEditingPackage({ ...pkg });
+    setEditPackageModalOpen(true);
+  };
+
+  const handleUpdatePackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPackage) return;
+
+    try {
+      await updateOrderPackage(editingPackage);
+      showToast("Package updated successfully", "success");
+      setEditPackageModalOpen(false);
+      fetchDetails();
+    } catch (error) {
+      showToast("Failed to update package", "error");
+    }
+  };
+
+  const handleOpenUploadModal = (pkgId: number) => {
+    setUploadingPackageId(pkgId);
+    setUploadModalOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadingPackageId || !selectedFiles) return;
+
+    const formData = new FormData();
+    for (let i = 0; i < selectedFiles.length; i++) {
+      formData.append("photos[]", selectedFiles[i]);
+    }
+
+    try {
+      await addPackageImages(uploadingPackageId, formData);
+      showToast("Images uploaded successfully", "success");
+      setUploadModalOpen(false);
+      fetchDetails();
+    } catch (error) {
+      showToast("Failed to upload images", "error");
+    }
   };
 
   const fetchDetails = async () => {
     try {
       setLoading(true);
       const response = await getOrder(Number(orderId));
+      console.log("order details", response.data);
       setOrder(response.data);
     } catch (err) {
       showToast("Failed to fetch order details.", "error");
@@ -678,38 +747,42 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
               <div className="px-6 py-4 border-b border-slate-200">
                 <h3 className="font-bold text-slate-800">Order Details</h3>
               </div>
-              <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">
-                    Receiver Name
-                  </p>
-                  <p className="font-medium text-slate-900 mt-1">
-                    {order.receiver_name}
-                  </p>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">
+                      Receiver Name
+                    </p>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {order.receiver_name}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">
+                      Receiver Phone
+                    </p>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {order.receiver_phone}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">
-                    Receiver Phone
-                  </p>
-                  <p className="font-medium text-slate-900 mt-1">
-                    {order.receiver_phone}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">
-                    Receiver Email
-                  </p>
-                  <p className="font-medium text-slate-900 mt-1">
-                    {order.receiver_email}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase">
-                    Receiver Address
-                  </p>
-                  <p className="font-medium text-slate-900 mt-1">
-                    {order.receiver_address}
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">
+                      Receiver Email
+                    </p>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {order.receiver_email}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase">
+                      Receiver Address
+                    </p>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {order.receiver_address}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -718,33 +791,81 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
               <div className="px-6 py-4 border-b border-slate-200">
                 <h3 className="font-bold text-slate-800">Packages</h3>
               </div>
-              <div className="p-6 space-y-3">
-                {order.packages && order.packages.length > 0 ? (
-                  order.packages.map((pkg, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded border border-slate-100"
-                    >
-                      <div className="flex items-center">
-                        <Package className="text-blue-500 mr-3" size={20} />
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">
-                            {/* @ts-ignore */}
-                            {pkg.contents || pkg.description}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {/* @ts-ignore */}
-                            Weight: {pkg.weight}kg, Value: ${pkg.declared_value}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-500 italic">
-                    No packages associated with this order.
-                  </p>
-                )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-slate-500">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3">
+                        Description
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Weight (kg)
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Value (UGX)
+                      </th>
+                      <th scope="col" className="px-6 py-3">
+                        Dimensions (cm)
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.packages && order.packages.length > 0 ? (
+                      order.packages.map((pkg) => (
+                        <tr
+                          key={pkg.id}
+                          className="bg-white border-b hover:bg-slate-50"
+                        >
+                          <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">
+                            {pkg.contents}
+                          </td>
+                          <td className="px-6 py-4">{pkg.weight}</td>
+                          <td className="px-6 py-4">
+                            {formatMoney(parseFloat(pkg.declared_value))}
+                          </td>
+                          <td className="px-6 py-4">
+                            {pkg.length && pkg.width && pkg.height
+                              ? `${pkg.length}x${pkg.width}x${pkg.height}`
+                              : "N/A"}
+                          </td>
+                          <td className="px-6 py-4 text-right space-x-2">
+                            <button
+                              onClick={() => handleOpenViewModal(pkg)}
+                              className="font-medium text-gray-600 hover:underline"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditModal(pkg)}
+                              className="font-medium text-blue-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleOpenUploadModal(pkg.id)}
+                              className="font-medium text-green-600 hover:underline"
+                              title="Upload images"
+                            >
+                              Upload
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-4 text-center text-slate-500 italic"
+                        >
+                          No packages associated with this order.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -879,7 +1000,7 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">
-                Declared Value ($)
+                Declared Value (UGX)
               </label>
               <input
                 required
@@ -1045,6 +1166,245 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
         invoiceData={previewData}
         formatMoney={formatMoney}
       />
+
+      <Modal
+        isOpen={isEditPackageModalOpen}
+        onClose={() => setEditPackageModalOpen(false)}
+        title="Edit Package"
+      >
+        {editingPackage && (
+          <form onSubmit={handleUpdatePackage} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">
+                Description
+              </label>
+              <input
+                type="text"
+                value={editingPackage.contents}
+                onChange={(e) =>
+                  setEditingPackage({
+                    ...editingPackage,
+                    contents: e.target.value,
+                  })
+                }
+                className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={editingPackage.weight}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      weight: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Declared Value (UGX)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingPackage.declared_value}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      declared_value: e.target.value,
+                    })
+                  }
+                  className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Length (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={editingPackage.length}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      length: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Width (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={editingPackage.width}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      width: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">
+                  Height (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={editingPackage.height}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      height: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full border border-slate-300 rounded mt-1 bg-white text-slate-900 p-2"
+                />
+              </div>
+            </div>
+            <div className="pt-4 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setEditPackageModalOpen(false)}
+                className="px-4 py-2 border rounded text-slate-600 mr-2 bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary-600 text-white rounded-md"
+              >
+                Update Package
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={isUploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        title="Upload Package Images"
+      >
+        <form onSubmit={handleImageUpload} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Select Images
+            </label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setSelectedFiles(e.target.files)}
+              className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+          <div className="pt-4 flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => setUploadModalOpen(false)}
+              className="px-4 py-2 border rounded text-slate-600 mr-2 bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary-600 text-white rounded-md"
+            >
+              Upload
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isViewPackageModalOpen}
+        onClose={() => setViewPackageModalOpen(false)}
+        title="Package Details"
+      >
+        {viewingPackage && (
+          <div className="space-y-4">
+            <div>
+              <strong>HWB Number:</strong> {viewingPackage.hwb_number}
+            </div>
+            <div>
+              <strong>Description:</strong> {viewingPackage.contents}
+            </div>
+            <div>
+              <strong>Weight:</strong> {viewingPackage.weight} kg
+            </div>
+            <div>
+              <strong>Value:</strong> UGX{" "}
+              {formatMoney(parseFloat(viewingPackage.declared_value))}
+            </div>
+            <div>
+              <strong>Dimensions:</strong>{" "}
+              {viewingPackage.length &&
+              viewingPackage.width &&
+              viewingPackage.height
+                ? `${viewingPackage.length}x${viewingPackage.width}x${viewingPackage.height} cm`
+                : "N/A"}
+            </div>
+            <div>
+              <strong>Fragile:</strong>{" "}
+              {viewingPackage.is_fragile ? "Yes" : "No"}
+            </div>
+            <div>
+              <strong>Hazardous:</strong>{" "}
+              {viewingPackage.is_hazardous ? "Yes" : "No"}
+            </div>
+            <div>
+              <strong>Damaged:</strong>{" "}
+              {viewingPackage.is_damaged ? "Yes" : "No"}
+            </div>
+            <div className="pt-4">
+              <h4 className="font-bold text-lg mb-2">Package Photos</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {viewingPackage.package_photos &&
+                viewingPackage.package_photos.length > 0 ? (
+                  viewingPackage.package_photos.map((photo, index) => (
+                    <img
+                      key={index}
+                      src={`${client.defaults.baseURL}/${photo}`}
+                      alt={`Package photo ${index + 1}`}
+                      className="w-full h-auto rounded-lg"
+                    />
+                  ))
+                ) : (
+                  <p className="text-slate-500 italic">
+                    No photos uploaded for this package.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="pt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewPackageModalOpen(false)}
+                className="px-4 py-2 border rounded text-slate-600 bg-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
