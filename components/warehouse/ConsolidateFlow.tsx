@@ -199,7 +199,7 @@ const ConsolidateFlow: React.FC<ConsolidateFlowProps> = ({
                       <div className="font-medium">
                         {m?.packages.length &&
                           m.packages.reduce(
-                            (sum, pkg) => sum + pkg.weight,
+                            (sum, pkg) => Number(sum) + Number(pkg.weight),
                             0
                           )}{" "}
                         kg

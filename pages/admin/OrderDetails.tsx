@@ -221,35 +221,39 @@ const AdminOrderDetails: React.FC<AdminOrderDetailsProps> = ({
   );
 
   const timelineSteps = [
-    { key: "PENDING", label: "Order Created", loc: "Client Portal" },
+    {
+      key: "PENDING",
+      label: "Delivery Request Received",
+      loc: "Client Portal",
+    },
     {
       key: "RECEIVED",
       label: "Received at Warehouse",
       loc: declaration.location.name,
     },
-    {
-      key: "CONSOLIDATED",
-      label: "Consolidated",
-      loc: declaration.location.name,
-    },
-    {
-      key: "DISPATCHED",
-      label: "Dispatched from Origin",
-      loc: declaration.location.name,
-    },
-    { key: "IN_TRANSIT", label: "In Transit", loc: "In Transit" },
-    {
-      key: "ARRIVED",
-      label: "Arrived at Destination",
-      loc: "Destination Port",
-    },
-    {
-      key: "READY_FOR_RELEASE",
-      label: "Ready for Release",
-      loc: "Local Warehouse",
-    },
-    { key: "RELEASED", label: "Released", loc: "Local Warehouse" },
-    { key: "DELIVERED", label: "Delivered", loc: "Final Address" },
+    // {
+    //   key: "CONSOLIDATED",
+    //   label: "Consolidated",
+    //   loc: declaration.location.name,
+    // },
+    // {
+    //   key: "DISPATCHED",
+    //   label: "Dispatched from Origin",
+    //   loc: declaration.location.name,
+    // },
+    // { key: "IN_TRANSIT", label: "In Transit", loc: "In Transit" },
+    // {
+    //   key: "ARRIVED",
+    //   label: "Arrived at Destination",
+    //   loc: "Destination Port",
+    // },
+    // {
+    //   key: "READY_FOR_RELEASE",
+    //   label: "Ready for Release",
+    //   loc: "Local Warehouse",
+    // },
+    // { key: "RELEASED", label: "Released", loc: "Local Warehouse" },
+    // { key: "DELIVERED", label: "Delivered", loc: "Final Address" },
   ];
 
   let currentStatusIndex = timelineSteps.findIndex(
