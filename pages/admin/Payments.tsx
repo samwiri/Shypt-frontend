@@ -27,7 +27,10 @@ import { AuthUser } from "@/api/types/auth";
 // Helper function for currency formatting
 const formatCurrency = (amount: number, currency: string | undefined) => {
   const symbol = currency === "UGX" ? "UGX " : "$";
-  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${symbol}${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
 interface LocalPayment extends ApiPayment {
@@ -154,22 +157,23 @@ const Payments: React.FC = () => {
 
     try {
       const newPayment = await recordInvoicePayment(payload);
-      const linkedInvoice = allInvoices.find(
-        (inv) => inv.id === newPayment.invoice_id
-      );
-      const paymentClient = allUsers.find(
-        (user) => user.id === linkedInvoice?.user_id || selectedClient?.id
-      );
+      // const linkedInvoice = allInvoices.find(
+      //   (inv) => inv.id === newPayment.invoice_id
+      // );
+      // const paymentClient = allUsers.find(
+      //   (user) => user.id === linkedInvoice?.user_id || selectedClient?.id
+      // );
 
-      const newPaymentForState: LocalPayment = {
-        ...newPayment,
-        client: paymentClient?.full_name || "N/A",
-        clientId: paymentClient?.id.toString(),
-        linkedInvoices: linkedInvoice ? [linkedInvoice.invoice_number] : [],
-        invoiceCurrency: linkedInvoice?.currency || "USD",
-      };
+      // const newPaymentForState: LocalPayment = {
+      //   ...newPayment,
+      //   client: paymentClient?.full_name || "N/A",
+      //   clientId: paymentClient?.id.toString(),
+      //   linkedInvoices: linkedInvoice ? [linkedInvoice.invoice_number] : [],
+      //   invoiceCurrency: linkedInvoice?.currency || "USD",
+      // };
 
-      setPayments((prevPayments) => [newPaymentForState, ...prevPayments]);
+      // setPayments((prevPayments) => [newPaymentForState, ...prevPayments]);
+      // await ();
       showToast("Payment Recorded Successfully", "success");
       resetForm();
       setIsFormOpen(false);
@@ -254,10 +258,16 @@ const Payments: React.FC = () => {
             Total Received (This Month)
           </p>
           <p className="text-2xl font-bold text-green-600 mt-1">
-            {totalReceivedThisMonth.usd > 0 && formatCurrency(totalReceivedThisMonth.usd, "USD")}
-            {totalReceivedThisMonth.usd > 0 && totalReceivedThisMonth.ugx > 0 && " / "}
-            {totalReceivedThisMonth.ugx > 0 && formatCurrency(totalReceivedThisMonth.ugx, "UGX")}
-            {totalReceivedThisMonth.usd === 0 && totalReceivedThisMonth.ugx === 0 && formatCurrency(0, "USD")}
+            {totalReceivedThisMonth.usd > 0 &&
+              formatCurrency(totalReceivedThisMonth.usd, "USD")}
+            {totalReceivedThisMonth.usd > 0 &&
+              totalReceivedThisMonth.ugx > 0 &&
+              " / "}
+            {totalReceivedThisMonth.ugx > 0 &&
+              formatCurrency(totalReceivedThisMonth.ugx, "UGX")}
+            {totalReceivedThisMonth.usd === 0 &&
+              totalReceivedThisMonth.ugx === 0 &&
+              formatCurrency(0, "USD")}
           </p>
         </div>
         <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
@@ -339,7 +349,7 @@ const Payments: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-xs font-bold text-slate-600">
-                      {pay.method.replace("_", " ")}
+                      {pay?.method.replace("_", " ")}
                     </div>
                     <div className="text-xs text-slate-400 font-mono">
                       {pay.transaction_reference}
@@ -479,7 +489,8 @@ const Payments: React.FC = () => {
                   {inv.invoice_number} -{" "}
                   {formatCurrency(
                     inv.line_items.reduce(
-                      (acc, item) => acc + Number(item.unit_price) * item.quantity,
+                      (acc, item) =>
+                        acc + Number(item.unit_price) * item.quantity,
                       0
                     ),
                     inv.currency

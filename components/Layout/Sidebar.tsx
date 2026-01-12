@@ -118,9 +118,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const clientLinks = [
     { name: "Dashboard", path: "/client/dashboard", icon: <Home size={20} /> },
-    { name: "My Orders", path: "/client/orders", icon: <Package size={20} /> },
     {
-      name: "My Delivery Requests",
+      name: "My Shipments",
+      path: "/client/orders",
+      icon: <Package size={20} />,
+    },
+    {
+      name: "My Orders",
       path: "/client/requests",
       icon: <ClipboardList size={20} />,
     },
