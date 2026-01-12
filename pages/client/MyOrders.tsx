@@ -82,8 +82,10 @@ const MyOrders: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">My Orders</h2>
-          <p className="text-slate-500 text-sm">Track your orders and view their history.</p>
+          <h2 className="text-2xl font-bold text-slate-800">My Shippments</h2>
+          <p className="text-slate-500 text-sm">
+            Track your orders and view their history.
+          </p>
         </div>
       </div>
 
@@ -91,9 +93,7 @@ const MyOrders: React.FC = () => {
         data={orders}
         columns={columns}
         loading={loading}
-        onRowClick={(order) =>
-          triggerNav(`/client/orders/${order.id}`)
-        }
+        onRowClick={(order) => triggerNav(`/client/orders/${order.id}`)}
         title="All Orders"
         searchPlaceholder="Search by tracking #..."
       />
