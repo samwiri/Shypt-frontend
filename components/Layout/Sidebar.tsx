@@ -43,16 +43,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     // CRM & Compliance
     { name: "CRM / Clients", path: "/admin/users", icon: <Users size={20} /> },
 
-    // Core Orders
-    {
-      name: "Delivery Requests",
-      path: "/admin/requests",
-      icon: <ClipboardList size={20} />,
-    },
     {
       name: "Client Orders",
       path: "/admin/client-orders",
       icon: <Package size={20} />,
+    },
+    // Core Orders
+    {
+      name: "Client Shipments",
+      path: "/admin/requests",
+      icon: <ClipboardList size={20} />,
     },
     {
       name: "Shop For Me",
@@ -119,14 +119,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const clientLinks = [
     { name: "Dashboard", path: "/client/dashboard", icon: <Home size={20} /> },
     {
-      name: "My Shipments",
-      path: "/client/orders",
-      icon: <Package size={20} />,
-    },
-    {
       name: "My Orders",
       path: "/client/requests",
       icon: <ClipboardList size={20} />,
+    },
+    {
+      name: "My Shipments",
+      path: "/client/orders",
+      icon: <Package size={20} />,
     },
     {
       name: "Document Center",

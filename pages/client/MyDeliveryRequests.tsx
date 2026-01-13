@@ -46,7 +46,7 @@ const MyDeliveryRequests: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
-  const [selectedWarehouse, setSelectedWarehouse] = useState<any>();
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
   const [declaredValue, setDeclaredValue] = useState<string>("");
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
@@ -86,7 +86,7 @@ const MyDeliveryRequests: React.FC = () => {
   }, []);
 
   const resetForm = () => {
-    setSelectedWarehouse("US");
+    setSelectedWarehouse("");
     setDeclaredValue("");
     setEstWeight("");
     setComplianceAgreed(false);
@@ -261,40 +261,22 @@ const MyDeliveryRequests: React.FC = () => {
             <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
               1. Select Destination Warehouse
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <select
+              name="warehouse_location_id"
+              value={selectedWarehouse}
+              onChange={(e) => setSelectedWarehouse(e.target.value)}
+              required
+              className="w-full p-3 border border-slate-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            >
+              <option value="" disabled>
+                -- Select a Warehouse --
+              </option>
               {warehouses.map((wh) => (
-                <button
-                  key={wh.code}
-                  type="button"
-                  onClick={() => setSelectedWarehouse(wh.code)}
-                  className={`relative p-4 rounded-2xl border-2 text-left transition-all group ${
-                    selectedWarehouse === wh.code
-                      ? "border-primary-600 bg-primary-50 ring-4 ring-primary-50"
-                      : "border-slate-100 hover:border-slate-200 bg-white"
-                  }`}
-                >
-                  {selectedWarehouse === wh.code && (
-                    <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-0.5">
-                      <Check size={12} />
-                    </div>
-                  )}
-                  <p
-                    className={`text-xs font-black uppercase tracking-tighter ${
-                      selectedWarehouse === wh.code
-                        ? "text-primary-700"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {wh.name}
-                  </p>
-                  {/* @ts-ignore */}
-                  <p className="font-bold text-slate-900 mt-1">{wh.city}</p>
-                  <p className="text-[10px] text-slate-500 mt-2 font-mono leading-tight group-hover:text-slate-700">
-                    {wh.address}
-                  </p>
-                </button>
+                <option key={wh.code} value={wh.code}>
+                  {wh.name} - {wh.code}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* STEP 2: LOGISTICS DETAILS */}
@@ -315,8 +297,12 @@ const MyDeliveryRequests: React.FC = () => {
                   />
                   <select
                     name="courier"
+                    defaultValue=""
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
                   >
+                    <option value="" disabled>
+                      -- Select a Courier --
+                    </option>
                     <option>UPS (United Parcel Service)</option>
                     <option>FedEx</option>
                     <option>USPS (Postal Service)</option>
