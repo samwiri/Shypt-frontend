@@ -24,6 +24,7 @@ import {
   CargoDeclaration,
   CreateCargoDeclarationPayload,
 } from "../../api/types/cargo";
+import ShoppingRequests from "./ShoppingRequests";
 
 const MyDeliveryRequests: React.FC = () => {
   const { showToast } = useToast();
@@ -45,7 +46,7 @@ const MyDeliveryRequests: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form State
-  const [selectedWarehouse, setSelectedWarehouse] = useState("US");
+  const [selectedWarehouse, setSelectedWarehouse] = useState<any>();
   const [declaredValue, setDeclaredValue] = useState<string>("");
   const [estWeight, setEstWeight] = useState<string>("");
   const [complianceAgreed, setComplianceAgreed] = useState(false);
@@ -156,7 +157,7 @@ const MyDeliveryRequests: React.FC = () => {
 
   const columns: Column<CargoDeclaration>[] = [
     {
-      header: "Declaration ID",
+      header: "Order ID",
       accessor: (cd) => (
         <span className="font-mono font-bold text-primary-600 hover:underline">
           {cd.id}
@@ -222,7 +223,7 @@ const MyDeliveryRequests: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">My Declarations</h2>
+          <h2 className="text-2xl font-bold text-slate-800">My Orders</h2>
           <p className="text-slate-500 text-sm">
             Track your shipments and declare incoming packages.
           </p>
@@ -242,9 +243,11 @@ const MyDeliveryRequests: React.FC = () => {
         onRowClick={(declaration) =>
           triggerNav(`/client/requests/${declaration.id}`)
         }
-        title="My Declaration History"
+        title="My Order History"
         searchPlaceholder="Search by tracking number or description..."
       />
+
+      <ShoppingRequests />
 
       <Modal
         isOpen={isModalOpen}
@@ -423,7 +426,7 @@ const MyDeliveryRequests: React.FC = () => {
                 <strong>
                   Liquids, Batteries (loose), Explosives, or Narcotics
                 </strong>
-                . Undeclared prohibited items will result in a $100 compliance
+                . Undeclared prohibited items will result in a 00 compliance
                 fine and cargo seizure.
               </p>
 
