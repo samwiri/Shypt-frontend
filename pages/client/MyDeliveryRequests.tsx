@@ -44,6 +44,9 @@ const MyDeliveryRequests: React.FC = () => {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"MY_ORDERS" | "SHOP_FOR_ME">(
+    "MY_ORDERS"
+  );
 
   // Form State
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
@@ -228,26 +231,60 @@ const MyDeliveryRequests: React.FC = () => {
             Track your shipments and declare incoming packages.
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-slate-900 text-white px-6 py-3 rounded-xl hover:bg-slate-800 flex items-center text-sm font-bold shadow-xl transition-all active:scale-95"
-        >
-          <Plus size={18} className="mr-2" /> Declare Package
-        </button>
+        {activeTab === "MY_ORDERS" && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-slate-900 text-white px-6 py-3 rounded-xl hover:bg-slate-800 flex items-center text-sm font-bold shadow-xl transition-all active:scale-95"
+          >
+            <Plus size={18} className="mr-2" /> Declare Package
+          </button>
+        )}
       </div>
 
-      <DataTable
-        data={cargoDeclarations}
-        columns={columns}
-        loading={loading}
-        onRowClick={(declaration) =>
-          triggerNav(`/client/requests/${declaration.id}`)
-        }
-        title="My Order History"
-        searchPlaceholder="Search by tracking number or description..."
-      />
+      {/* TABS */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab("MY_ORDERS")}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "MY_ORDERS"
+                ? "border-primary-500 text-primary-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            My Package Declarations
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("SHOP_FOR_ME")}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "SHOP_FOR_ME"
+                ? "border-primary-500 text-primary-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            'Shop For Me' Requests
+          </button>
+        </nav>
+      </div>
 
-      <ShoppingRequests />
+      {/* CONTENT */}
+      <div className="pt-4">
+        {activeTab === "MY_ORDERS" && (
+          <DataTable
+            data={cargoDeclarations}
+            columns={columns}
+            loading={loading}
+            onRowClick={(declaration) =>
+              triggerNav(`/client/requests/${declaration.id}`)
+            }
+            title="My Declarations History"
+            searchPlaceholder="Search by tracking number or description..."
+          />
+        )}
+        {activeTab === "SHOP_FOR_ME" && <ShoppingRequests />}
+      </div>
 
       <Modal
         isOpen={isModalOpen}
