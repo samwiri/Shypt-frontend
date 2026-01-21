@@ -134,6 +134,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: <Package size={20} />,
     },
     {
+      name: "My Deliveries",
+      path: "/client/deliveries",
+      icon: <Truck size={20} />,
+    },
+    {
       name: "Document Center",
       path: "/client/document-center",
       icon: <BookOpenCheck />,

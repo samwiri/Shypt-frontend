@@ -68,6 +68,8 @@ import ClientNotifications from "./pages/client/ClientNotifications";
 import ClientSettings from "./pages/client/ClientSettings";
 import ShippingAddresses from "./pages/client/ShippingAddresses";
 import DocumentCenter from "./pages/client/DocumentCenter";
+import ClientDeliveries from "./pages/client/ClientDeliveries";
+import ClientDeliveryDetails from "./pages/client/ClientDeliveryDetails";
 
 const AppRoutes: React.FC = () => {
   const navigate = useNavigate();
@@ -158,6 +160,8 @@ const AppRoutes: React.FC = () => {
         <Route path="settings" element={<ClientSettings />} />
         <Route path="shipping-addresses" element={<ShippingAddresses />} />
         <Route path="document-center" element={<DocumentCenter />} />
+        <Route path="deliveries" element={<ClientDeliveries />} />
+        <Route path="deliveries/:deliveryId" element={<ClientDeliveryDetailsWrapper />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" />} />
@@ -369,6 +373,17 @@ const ClientTicketDetailsWrapper = () => {
     <ClientTicketDetails
       id={id || ""}
       onBack={() => navigate("/client/support")}
+    />
+  );
+};
+
+const ClientDeliveryDetailsWrapper = () => {
+  const { deliveryId } = useParams<{ deliveryId: string }>();
+  const navigate = useNavigate();
+  return (
+    <ClientDeliveryDetails
+      deliveryId={deliveryId || ""}
+      onBack={() => navigate("/client/deliveries")}
     />
   );
 };
