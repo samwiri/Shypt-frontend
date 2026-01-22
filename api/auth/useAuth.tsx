@@ -28,7 +28,7 @@ const useAuth = () => {
   };
 
   const register = async (
-    payload: RegisterPayload
+    payload: RegisterPayload,
   ): Promise<RegisterResponse> => {
     const { data } = await client.post("/api/auth/register", payload);
     return data;
@@ -45,21 +45,21 @@ const useAuth = () => {
   };
 
   const verifyOtp = async (
-    payload: VerifyOtpPayload
+    payload: VerifyOtpPayload,
   ): Promise<AuthResponse> => {
     const { data } = await client.post("/api/auth/verify_otp", payload);
     return data;
   };
 
   const changePassword = async (
-    payload: ChangePasswordPayload
+    payload: ChangePasswordPayload,
   ): Promise<AuthResponse> => {
     const { data } = await client.post("/api/auth/change_password", payload);
     return data;
   };
 
   const updateUserProfile = async (
-    payload: UpdateUserPayload
+    payload: UpdateUserPayload,
   ): Promise<AuthResponse> => {
     const { data } = await client.put("/api/auth/update_user", payload);
     return data;
@@ -89,7 +89,7 @@ const useAuth = () => {
   };
 
   const fetchCrmCustomerById = async (
-    id: number
+    id: number,
   ): Promise<{
     data: {
       user: AuthUser;
@@ -105,6 +105,20 @@ const useAuth = () => {
     const { data } = await client.get(`/api/customers/${id}`);
     return data;
   };
+
+  const AllocateWareHouseToStaff = async ({
+    user_id,
+    warehouse_location_id,
+  }: {
+    user_id: number;
+    warehouse_location_id: number;
+  }): Promise<AuthResponse> => {
+    const { data } = await client.post("/api/auth/user_warehouse", {
+      user_id,
+      warehouse_location_id,
+    });
+    return data;
+  };
   return {
     logout,
     login,
@@ -117,6 +131,7 @@ const useAuth = () => {
     fetchAllUsers,
     fetchCrmCustomers,
     fetchCrmCustomerById,
+    AllocateWareHouseToStaff,
   };
 };
 

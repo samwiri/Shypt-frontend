@@ -5,27 +5,20 @@ import {
   Bell,
   Shield,
   Database,
-  DollarSign,
-  Mail,
-  Plus,
-  Trash2,
-  Edit,
   BookOpen,
-  Settings as SettingsIcon,
-  CheckCircle,
-  X,
-  Lock,
-  Eye,
-  ShieldCheck,
-  RefreshCw,
   LayoutGrid,
-  Layers,
-  MapPin,
-  MoreVertical,
+  RefreshCw,
   Activity,
-  Printer,
+  Edit,
+  Trash2,
   ClipboardCheck,
-  ArrowRightLeft,
+  Printer,
+  Plus,
+  Lock,
+  Mail,
+  CheckCircle,
+  DollarSign,
+  Layers,
 } from "lucide-react";
 import { useToast } from "../../context/ToastContext";
 import Modal from "../../components/UI/Modal";
@@ -33,21 +26,24 @@ import { DataTable, Column } from "../../components/UI/DataTable";
 import useWareHouse from "../../api/warehouse/useWareHouse";
 import { WareHouseLocation, WarehouseRack } from "../../api/types/warehouse";
 
+// Import new tab components
+import GeneralTab from "./settings/GeneralTab";
+import HsCodesTab from "./settings/HsCodesTab";
+import WarehousesTab from "./settings/WarehousesTab";
+import LocationsTab from "./settings/LocationsTab";
+import NotificationsTab from "./settings/NotificationsTab";
+import SecurityTab from "./settings/SecurityTab";
+
+import useAuth from "../../api/auth/useAuth";
+import { AuthUser } from "../../api/types/auth";
+
+// Define HSCode interface here, assuming it's used in this file or passed to children
 interface HSCode {
-  // Added id for DataTable compatibility
   id: string;
   code: string;
   desc: string;
   duty: number;
   vat: number;
-}
-
-interface StaffMember {
-  id: number;
-  name: string;
-  role: string;
-  email: string;
-  permissions: string[];
 }
 
 const Settings: React.FC = () => {
@@ -69,6 +65,27 @@ const Settings: React.FC = () => {
     createWarehouseRack,
     deleteWarehouseRack,
   } = useWareHouse();
+
+  const { register, AllocateWareHouseToStaff, fetchAllUsers } = useAuth();
+  const [staff, setStaff] = useState<AuthUser[]>([]);
+
+  // Modal States
+  const [modalType, setModalType] = useState<
+    | "WAREHOUSE"
+    | "STAFF"
+    | "HS_CODE"
+    | "PERMISSIONS"
+    | "RACK"
+    | "EDIT_WAREHOUSE"
+    | null
+  >(null);
+
+  // --- INVITE USER STATE ---
+  const [inviteStep, setInviteStep] = useState(1);
+  const [newlyCreatedStaff, setNewlyCreatedStaff] = useState<AuthUser | null>(
+    null,
+  );
+  const [isInvitingUser, setIsInvitingUser] = useState(false);
 
   // --- GLOBAL STATE ---
   const [exchangeRate, setExchangeRate] = useState("3850");
@@ -143,7 +160,9 @@ const Settings: React.FC = () => {
     const loadData = async () => {
       // Fetch warehouses if the relevant tab is active AND the data hasn't been loaded yet.
       if (
-        (activeTab === "WAREHOUSES" || activeTab === "LOCATIONS") &&
+        (activeTab === "WAREHOUSES" ||
+          activeTab === "LOCATIONS" ||
+          modalType === "STAFF") &&
         warehouses.length === 0
       ) {
         setIsLoadingWarehouses(true);
@@ -168,37 +187,23 @@ const Settings: React.FC = () => {
           setIsLoadingRacks(false);
         }
       }
+      // Fetch staff if the relevant tab is active AND the data hasn't been loaded yet.
+      if (activeTab === "SECURITY" && staff.length === 0) {
+        try {
+          const res = await fetchAllUsers();
+          console.log("user data", res.data);
+          const staffUsers = res.data.filter(
+            (user) => user.user_type === "staff",
+          );
+          setStaff(staffUsers);
+        } catch (error) {
+          showToast("Failed to fetch staff members", "error");
+        }
+      }
     };
     loadData();
-  }, [activeTab, warehouses.length, racks.length]);
+  }, [activeTab, warehouses.length, racks.length, staff.length, modalType]);
 
-  const [staff, setStaff] = useState<StaffMember[]>([
-    {
-      id: 1,
-      name: "Sarah Jenkins",
-      email: "s.jenkins@shypt.net",
-      role: "Super Admin",
-      permissions: ["ALL"],
-    },
-    {
-      id: 2,
-      name: "Mike Omondi",
-      email: "m.omondi@shypt.net",
-      role: "Warehouse Mgr",
-      permissions: ["RECEIVE", "CONSOLIDATE"],
-    },
-  ]);
-
-  // Modal States
-  const [modalType, setModalType] = useState<
-    | "WAREHOUSE"
-    | "STAFF"
-    | "HS_CODE"
-    | "PERMISSIONS"
-    | "RACK"
-    | "EDIT_WAREHOUSE"
-    | null
-  >(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [isAddingWarehouse, setIsAddingWarehouse] = useState(false);
@@ -220,6 +225,70 @@ const Settings: React.FC = () => {
       setIsTestingSmtp(false);
       showToast("SMTP connection successful", "success");
     }, 2000);
+  };
+
+  const handleInviteUser = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsInvitingUser(true);
+    const fd = new FormData(e.currentTarget);
+    const password = fd.get("password") as string;
+    const password_confirmation = fd.get("password_confirmation") as string;
+
+    if (password !== password_confirmation) {
+      showToast("Passwords do not match", "error");
+      setIsInvitingUser(false);
+      return;
+    }
+
+    const payload = {
+      full_name: fd.get("full_name") as string,
+      email: fd.get("email") as string,
+      phone: fd.get("phone") as string,
+      password: password,
+      password_confirmation: password_confirmation,
+      user_type: "staff",
+    };
+
+    try {
+      const res = await register(payload as any);
+      setNewlyCreatedStaff(res.data);
+      showToast("Staff member created successfully!", "success");
+      setInviteStep(2);
+    } catch (error) {
+      showToast("Failed to create staff member", "error");
+    } finally {
+      setIsInvitingUser(false);
+    }
+  };
+
+  const handleAssignWarehouseToStaff = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ) => {
+    e.preventDefault();
+    if (!newlyCreatedStaff) return;
+
+    setIsInvitingUser(true);
+    const fd = new FormData(e.currentTarget);
+    const warehouse_location_id = Number(fd.get("warehouse_location_id"));
+
+    try {
+      await AllocateWareHouseToStaff({
+        user_id: newlyCreatedStaff.id,
+        warehouse_location_id,
+      });
+      showToast(
+        `Assigned ${newlyCreatedStaff.full_name} to warehouse`,
+        "success",
+      );
+      setStaff([...staff, newlyCreatedStaff]);
+      setModalType(null);
+      setInviteStep(1);
+      setNewlyCreatedStaff(null);
+    } catch (error) {
+      showToast("Failed to assign warehouse", "error");
+    } finally {
+      setIsInvitingUser(false);
+    }
   };
 
   const handleAddWarehouse = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -648,435 +717,56 @@ const Settings: React.FC = () => {
         {/* Content Area */}
         <div className="flex-1 p-8 overflow-x-hidden">
           {activeTab === "GENERAL" && (
-            <div className="space-y-8 animate-in fade-in duration-300">
-              <div>
-                <h3 className="text-lg font-medium text-slate-800 border-b pb-2 mb-4">
-                  Company Profile
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="mt-1 w-full border border-slate-300 rounded p-2 text-slate-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Official Support Email
-                    </label>
-                    <input
-                      type="email"
-                      defaultValue="support@shypt.net"
-                      className="mt-1 w-full border border-slate-300 rounded p-2 text-slate-900 bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium text-slate-800 border-b pb-2 mb-4 flex items-center">
-                  <DollarSign size={20} className="mr-2 text-green-600" />{" "}
-                  Currency & Pricing
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Global Exchange Rate (1 USD)
-                    </label>
-                    <div className="relative mt-1">
-                      <span className="absolute left-3 top-2 text-slate-500 font-bold">
-                        UGX
-                      </span>
-                      <input
-                        type="number"
-                        value={exchangeRate}
-                        onChange={(e) => setExchangeRate(e.target.value)}
-                        className="w-full border border-slate-300 rounded p-2 pl-14 text-slate-900 bg-white font-black text-lg"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Shopping Buffer (%)
-                    </label>
-                    <div className="relative mt-1">
-                      <input
-                        type="number"
-                        value={buffer}
-                        onChange={(e) => setBuffer(e.target.value)}
-                        className="w-full border border-slate-300 rounded p-2 text-slate-900 bg-white font-bold"
-                      />
-                      <span className="absolute right-3 top-2 text-slate-500">
-                        %
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <GeneralTab
+              companyName={companyName}
+              setCompanyName={setCompanyName}
+              exchangeRate={exchangeRate}
+              setExchangeRate={setExchangeRate}
+              buffer={buffer}
+              setBuffer={setBuffer}
+            />
           )}
 
           {activeTab === "HS_CODES" && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-medium text-slate-800">
-                    HS Codes & Tax Rates
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    Used for URA tax estimation during deconsolidation.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setModalType("HS_CODE")}
-                  className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700 transition flex items-center"
-                >
-                  <Plus size={16} className="mr-2" /> Add Code
-                </button>
-              </div>
-
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                    <tr>
-                      <th className="p-4">HS Code</th>
-                      <th className="p-4">Category Description</th>
-                      <th className="p-4 text-right">Duty %</th>
-                      <th className="p-4 text-right">VAT %</th>
-                      <th className="p-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {hsCodes.map((code) => (
-                      <tr
-                        key={code.code}
-                        className="hover:bg-slate-50 transition"
-                      >
-                        <td className="p-4 font-mono font-bold text-slate-900">
-                          {code.code}
-                        </td>
-                        <td className="p-4 text-slate-600">{code.desc}</td>
-                        <td className="p-4 text-right font-medium">
-                          {code.duty}%
-                        </td>
-                        <td className="p-4 text-right font-medium">
-                          {code.vat}%
-                        </td>
-                        <td className="p-4 text-right">
-                          <button className="text-slate-400 hover:text-red-600 p-1">
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            // @ts-ignore
+            <HsCodesTab hsCodes={hsCodes} setModalType={setModalType} />
           )}
 
           {activeTab === "WAREHOUSES" && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-medium text-slate-800">
-                    Warehouse Network
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    Manage global origin and destination hubs.
-                  </p>
-                </div>
-              </div>
-
-              {isLoadingWarehouses ? (
-                <div className="flex justify-center items-center h-64">
-                  <RefreshCw
-                    className="animate-spin text-slate-400"
-                    size={32}
-                  />
-                </div>
-              ) : (
-                <DataTable
-                  data={warehouses}
-                  columns={warehouseColumns}
-                  title="Global Hub Registry"
-                  primaryAction={
-                    <button
-                      onClick={() => setModalType("WAREHOUSE")}
-                      className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
-                    >
-                      <Plus size={14} className="mr-1" /> Add Hub
-                    </button>
-                  }
-                />
-              )}
-            </div>
+            <WarehousesTab
+              isLoadingWarehouses={isLoadingWarehouses}
+              warehouses={warehouses}
+              warehouseColumns={warehouseColumns}
+              // @ts-ignore
+              setModalType={setModalType}
+            />
           )}
 
           {activeTab === "LOCATIONS" && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-medium text-slate-800">
-                    Inventory Map & Racks
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    Define floor zones, rack IDs, and bin ranges across all
-                    hubs.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
-                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                    Total Racks
-                  </p>
-                  <p className="text-2xl font-black text-blue-900">
-                    {stats.total}
-                  </p>
-                </div>
-                <div className="bg-red-50 border border-red-100 p-4 rounded-xl">
-                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">
-                    High Occupancy
-                  </p>
-                  <p className="text-2xl font-black text-red-900">
-                    {stats.highOccupancy}
-                  </p>
-                </div>
-                <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl">
-                  <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">
-                    Pending Audit
-                  </p>
-                  <p className="text-2xl font-black text-orange-900">
-                    {stats.pendingAudit}
-                  </p>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                    Free Space
-                  </p>
-                  <p className="text-2xl font-black text-slate-900">
-                    {stats.freeSpace}%
-                  </p>
-                </div>
-              </div>
-
-              {isLoadingRacks ? (
-                <div className="flex justify-center items-center h-64">
-                  <RefreshCw
-                    className="animate-spin text-slate-400"
-                    size={32}
-                  />
-                </div>
-              ) : (
-                <DataTable
-                  data={racks}
-                  columns={rackColumns}
-                  title="Storage Configuration"
-                  searchPlaceholder="Search Zone, ID or Warehouse..."
-                  primaryAction={
-                    <button
-                      onClick={() => setModalType("RACK")}
-                      className="bg-slate-900 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-800 flex items-center shadow-sm"
-                    >
-                      <Plus size={14} className="mr-1" /> New Rack
-                    </button>
-                  }
-                />
-              )}
-            </div>
+            <LocationsTab
+              isLoadingRacks={isLoadingRacks}
+              racks={racks}
+              rackColumns={rackColumns}
+              stats={stats}
+              // @ts-ignore
+              setModalType={setModalType}
+            />
           )}
 
           {activeTab === "NOTIFICATIONS" && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl flex items-center justify-between mb-8">
-                <div className="flex items-center">
-                  <Mail className="text-blue-600 mr-4" size={32} />
-                  <div>
-                    <h4 className="font-bold text-blue-900">
-                      Email Infrastructure
-                    </h4>
-                    <p className="text-sm text-blue-700">
-                      Configure how the system sends alerts to clients.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleTestSmtp}
-                  disabled={isTestingSmtp}
-                  className="bg-white border border-blue-200 text-blue-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-100 transition flex items-center"
-                >
-                  {isTestingSmtp ? (
-                    <RefreshCw size={16} className="mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle size={16} className="mr-2" />
-                  )}
-                  Test Connection
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2 md:col-span-1">
-                  <label className="block text-sm font-bold text-slate-700">
-                    SMTP Host
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="smtp.sendgrid.net"
-                    className="mt-1 w-full border border-slate-300 rounded p-2 bg-white"
-                  />
-                </div>
-                <div className="col-span-2 md:col-span-1">
-                  <label className="block text-sm font-bold text-slate-700">
-                    SMTP Port
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="587"
-                    className="w-24 mt-1 border border-slate-300 rounded p-2 bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-8 border-t">
-                <h3 className="text-lg font-medium text-slate-800 mb-4">
-                  Event-Driven Alerts
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    "Package Receipt",
-                    "Manifest Departure",
-                    "Customs Arrival",
-                    "Invoice Issued",
-                  ].map((e) => (
-                    <div
-                      key={e}
-                      className="flex items-center justify-between p-4 border border-slate-100 rounded-lg"
-                    >
-                      <span className="text-sm font-medium text-slate-700">
-                        {e}
-                      </span>
-                      <div className="flex gap-4">
-                        <label className="flex items-center text-xs text-slate-500">
-                          <input
-                            type="checkbox"
-                            defaultChecked
-                            className="mr-2 rounded text-primary-600"
-                          />{" "}
-                          Email
-                        </label>
-                        <label className="flex items-center text-xs text-slate-500">
-                          <input
-                            type="checkbox"
-                            defaultChecked
-                            className="mr-2 rounded text-primary-600"
-                          />{" "}
-                          SMS
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <NotificationsTab
+              handleTestSmtp={handleTestSmtp}
+              isTestingSmtp={isTestingSmtp}
+            />
           )}
 
           {activeTab === "SECURITY" && (
-            <div className="space-y-8 animate-in fade-in duration-300">
-              <div className="bg-red-50 border border-red-200 p-6 rounded-xl">
-                <h4 className="font-bold text-red-800 flex items-center text-lg">
-                  <Shield size={24} className="mr-3" /> Critical Operations
-                  Security
-                </h4>
-                <p className="text-sm text-red-700 mt-2 leading-relaxed">
-                  Enabling <strong>Strict Compliance Mode</strong> forces a
-                  secondary PIN verification whenever a staff member attempts to
-                  release cargo flagged by URA or Warehouse Compliance.
-                </p>
-                <div className="mt-4 flex items-center justify-between bg-white/50 p-3 rounded-lg border border-red-100">
-                  <span className="text-sm font-bold text-red-900">
-                    Require Supervisor PIN for Release
-                  </span>
-                  <button className="w-12 h-6 bg-red-600 rounded-full relative">
-                    <div className="absolute top-1 left-7 w-4 h-4 bg-white rounded-full"></div>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-slate-800">
-                    Staff Access Control
-                  </h3>
-                  <button
-                    onClick={() => setModalType("STAFF")}
-                    className="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-md hover:bg-slate-700 font-bold"
-                  >
-                    + Invite User
-                  </button>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
-                      <tr>
-                        <th className="p-4">User</th>
-                        <th className="p-4">Role</th>
-                        <th className="p-4">Permissions</th>
-                        <th className="p-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {staff.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50 transition">
-                          <td className="p-4">
-                            <div className="font-bold text-slate-900">
-                              {s.name}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {s.email}
-                            </div>
-                          </td>
-                          <td className="p-4 text-slate-600 font-medium">
-                            {s.role}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex flex-wrap gap-1">
-                              {s.permissions.map((p) => (
-                                <span
-                                  key={p}
-                                  className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-bold"
-                                >
-                                  {p}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedItem(s);
-                                setModalType("PERMISSIONS");
-                              }}
-                              className="text-primary-600 hover:bg-primary-50 p-1.5 rounded transition"
-                              title="Edit Permissions"
-                            >
-                              <Lock size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <SecurityTab
+              staff={staff}
+              // @ts-ignore
+              setModalType={setModalType}
+              setSelectedItem={setSelectedItem}
+            />
           )}
         </div>
       </div>
@@ -1476,6 +1166,125 @@ const Settings: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* INVITE STAFF MODAL */}
+      <Modal
+        isOpen={modalType === "STAFF"}
+        onClose={() => {
+          setModalType(null);
+          setInviteStep(1);
+          setNewlyCreatedStaff(null);
+        }}
+        title={
+          inviteStep === 1
+            ? "Invite New Staff Member"
+            : `Assign Warehouse to ${newlyCreatedStaff?.full_name}`
+        }
+      >
+        {inviteStep === 1 ? (
+          <form onSubmit={handleInviteUser} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Full Name
+              </label>
+              <input
+                name="full_name"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+                placeholder="e.g. John Doe"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Email Address
+              </label>
+              <input
+                name="email"
+                type="email"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+                placeholder="e.g. john.doe@example.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Phone Number
+              </label>
+              <input
+                name="phone"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+                placeholder="e.g. +256700123456"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Password
+              </label>
+              <input
+                name="password"
+                type="password"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Confirm Password
+              </label>
+              <input
+                name="password_confirmation"
+                type="password"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+              />
+            </div>
+            <div className="flex justify-end pt-4">
+              <button
+                type="submit"
+                disabled={isInvitingUser}
+                className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
+              >
+                {isInvitingUser ? (
+                  <RefreshCw size={18} className="mr-2 animate-spin" />
+                ) : null}
+                {isInvitingUser ? "Creating..." : "Create & Proceed"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleAssignWarehouseToStaff} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
+                Assign to Warehouse
+              </label>
+              <select
+                name="warehouse_location_id"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+              >
+                {warehouses.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.name} ({wh.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end pt-4">
+              <button
+                type="submit"
+                disabled={isInvitingUser}
+                className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
+              >
+                {isInvitingUser ? (
+                  <RefreshCw size={18} className="mr-2 animate-spin" />
+                ) : null}
+                {isInvitingUser ? "Assigning..." : "Assign & Finish"}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
