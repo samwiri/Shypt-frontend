@@ -19,6 +19,7 @@ import {
   CheckCircle,
   DollarSign,
   Layers,
+  MapPin,
 } from "lucide-react";
 import { useToast } from "../../context/ToastContext";
 import Modal from "../../components/UI/Modal";
@@ -33,11 +34,14 @@ import WarehousesTab from "./settings/WarehousesTab";
 import LocationsTab from "./settings/LocationsTab";
 import NotificationsTab from "./settings/NotificationsTab";
 import SecurityTab from "./settings/SecurityTab";
+import ShippingAddressesTab from "./settings/ShippingAddressesTab";
 
 import useAuth from "../../api/auth/useAuth";
 import { AuthUser } from "../../api/types/auth";
+import useShippingAddress from "../../api/useShippingAddress/useShippingAddress";
+import { ShippingAddress } from "../../api/types/shippingAddress";
 
-import countriesData from "../../utils/countries.json";
+
 
 // Define HSCode interface here, assuming it's used in this file or passed to children
 interface HSCode {
@@ -57,6 +61,7 @@ const Settings: React.FC = () => {
     | "SECURITY"
     | "HS_CODES"
     | "LOCATIONS"
+    | "SHIPPING_ADDRESSES"
   >("GENERAL");
 
   const {
@@ -67,6 +72,13 @@ const Settings: React.FC = () => {
     createWarehouseRack,
     deleteWarehouseRack,
   } = useWareHouse();
+
+  const {
+    fetchShippingAddresses,
+    createShippingAddress,
+    updateShippingAddress,
+    deleteShippingAddress,
+  } = useShippingAddress();
 
   const { register, AllocateWareHouseToStaff, fetchAllUsers } = useAuth();
   const [staff, setStaff] = useState<AuthUser[]>([]);
@@ -79,6 +91,8 @@ const Settings: React.FC = () => {
     | "PERMISSIONS"
     | "RACK"
     | "EDIT_WAREHOUSE"
+    | "SHIPPING_ADDRESS"
+    | "EDIT_SHIPPING_ADDRESS"
     | null
   >(null);
 
@@ -120,6 +134,9 @@ const Settings: React.FC = () => {
 
   const [warehouses, setWarehouses] = useState<WareHouseLocation[]>([]);
   const [racks, setRacks] = useState<WarehouseRack[]>([]);
+  const [shippingAddresses, setShippingAddresses] = useState<ShippingAddress[]>(
+    [],
+  );
 
   const stats = useMemo(() => {
     const totalRacks = racks.length;
@@ -202,9 +219,31 @@ const Settings: React.FC = () => {
           showToast("Failed to fetch staff members", "error");
         }
       }
+      // Fetch shipping addresses if the relevant tab is active AND the data hasn't been loaded yet.
+      if (
+        activeTab === "SHIPPING_ADDRESSES" &&
+        shippingAddresses.length === 0
+      ) {
+        setIsLoadingShippingAddresses(true);
+        try {
+          const res = await fetchShippingAddresses();
+          setShippingAddresses(res.data);
+        } catch (error) {
+          showToast("Failed to fetch shipping addresses", "error");
+        } finally {
+          setIsLoadingShippingAddresses(false);
+        }
+      }
     };
     loadData();
-  }, [activeTab, warehouses.length, racks.length, staff.length, modalType]);
+  }, [
+    activeTab,
+    warehouses.length,
+    racks.length,
+    staff.length,
+    shippingAddresses.length,
+    modalType,
+  ]);
 
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
@@ -215,6 +254,12 @@ const Settings: React.FC = () => {
   const [isEditingWarehouse, setIsEditingWarehouse] = useState(false);
   const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(false);
   const [isLoadingRacks, setIsLoadingRacks] = useState(false);
+  const [isLoadingShippingAddresses, setIsLoadingShippingAddresses] =
+    useState(false);
+  const [editingShippingAddress, setEditingShippingAddress] =
+    useState<ShippingAddress | null>(null);
+  const [isSavingShippingAddress, setIsSavingShippingAddress] =
+    useState(false);
 
   // --- ACTIONS ---
   const handleSaveGlobal = () => {
@@ -390,6 +435,63 @@ const Settings: React.FC = () => {
       showToast("Failed to add rack", "error");
     } finally {
       setIsAddingRack(false);
+    }
+  };
+
+  const handleSaveShippingAddress = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ) => {
+    e.preventDefault();
+    setIsSavingShippingAddress(true);
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      name: fd.get("name") as string,
+      address_line1: fd.get("address_line1") as string,
+      address_line2: fd.get("address_line2") as string,
+      city: fd.get("city") as string,
+      state: fd.get("state") as string,
+      zip: fd.get("zip") as string,
+      phone_number: fd.get("phone_number") as string,
+    };
+
+    try {
+      if (editingShippingAddress) {
+        const res = await updateShippingAddress(
+          editingShippingAddress.id,
+          payload,
+        );
+        setShippingAddresses(
+          shippingAddresses.map((a) => (a.id === res.id ? res : a)),
+        );
+        showToast("Address updated successfully", "success");
+      } else {
+        const res = await createShippingAddress(payload);
+        setShippingAddresses([...shippingAddresses, res]);
+        showToast("Address created successfully", "success");
+      }
+      setModalType(null);
+      setEditingShippingAddress(null);
+    } catch (error) {
+      showToast(
+        editingShippingAddress
+          ? "Failed to update address"
+          : "Failed to create address",
+        "error",
+      );
+    } finally {
+      setIsSavingShippingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (addr: ShippingAddress) => {
+    if (confirm(`Are you sure you want to delete the address for ${addr.name}?`)) {
+      try {
+        await deleteShippingAddress(addr.id);
+        setShippingAddresses(shippingAddresses.filter((a) => a.id !== addr.id));
+        showToast("Shipping address deleted", "success");
+      } catch (error) {
+        showToast("Failed to delete shipping address", "error");
+      }
     }
   };
 
@@ -648,6 +750,39 @@ const Settings: React.FC = () => {
     },
   ];
 
+  const shippingAddressColumns: Column<ShippingAddress>[] = [
+    { header: "Recipient", accessor: "name", sortable: true },
+    {
+      header: "Address",
+      accessor: (addr) =>
+        `${addr.address_line1}, ${addr.city}, ${addr.state} ${addr.zip}`,
+    },
+    { header: "Phone", accessor: "phone_number" },
+    {
+      header: "Actions",
+      className: "text-right",
+      accessor: (addr) => (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => {
+              setEditingShippingAddress(addr);
+              setModalType("EDIT_SHIPPING_ADDRESS");
+            }}
+            className="p-1.5 text-slate-500 hover:text-blue-600 rounded bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 transition"
+          >
+            <Edit size={16} />
+          </button>
+          <button
+            onClick={() => handleDeleteAddress(addr)}
+            className="p-1.5 text-slate-500 hover:text-red-600 rounded bg-slate-50 hover:bg-white border border-transparent hover:border-slate-200 transition"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -690,6 +825,11 @@ const Settings: React.FC = () => {
                 id: "LOCATIONS",
                 label: "Racks & Locations",
                 icon: <LayoutGrid size={18} />,
+              },
+              {
+                id: "SHIPPING_ADDRESSES",
+                label: "Shipping Addresses",
+                icon: <MapPin size={18} />,
               },
               {
                 id: "NOTIFICATIONS",
@@ -757,6 +897,15 @@ const Settings: React.FC = () => {
             />
           )}
 
+          {activeTab === "SHIPPING_ADDRESSES" && (
+            <ShippingAddressesTab
+              isLoading={isLoadingShippingAddresses}
+              addresses={shippingAddresses}
+              columns={shippingAddressColumns}
+              setModalType={setModalType as any}
+            />
+          )}
+
           {activeTab === "NOTIFICATIONS" && (
             <NotificationsTab
               handleTestSmtp={handleTestSmtp}
@@ -776,6 +925,111 @@ const Settings: React.FC = () => {
       </div>
 
       {/* --- MODALS --- */}
+
+      {/* SHIPPING ADDRESS MODAL (ADD/EDIT) */}
+      <Modal
+        isOpen={
+          modalType === "SHIPPING_ADDRESS" ||
+          modalType === "EDIT_SHIPPING_ADDRESS"
+        }
+        onClose={() => {
+          setModalType(null);
+          setEditingShippingAddress(null);
+        }}
+        title={
+          editingShippingAddress
+            ? "Edit Shipping Address"
+            : "Add Shipping Address"
+        }
+      >
+        <form onSubmit={handleSaveShippingAddress} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Recipient Name
+            </label>
+            <input
+              name="name"
+              required
+              defaultValue={editingShippingAddress?.name}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Address Line 1
+            </label>
+            <input
+              name="address_line1"
+              defaultValue={editingShippingAddress?.address_line1}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Address Line 2 (Optional)
+            </label>
+            <input
+              name="address_line2"
+              defaultValue={editingShippingAddress?.address_line2 || ""}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1">
+              <label className="block text-sm font-bold text-slate-700">
+                City
+              </label>
+              <input
+                name="city"
+                defaultValue={editingShippingAddress?.city}
+                className="w-full border p-2 rounded mt-1 bg-white"
+              />
+            </div>
+            <div className="col-span-1">
+              <label className="block text-sm font-bold text-slate-700">
+                State/Province
+              </label>
+              <input
+                name="state"
+                defaultValue={editingShippingAddress?.state}
+                className="w-full border p-2 rounded mt-1 bg-white"
+              />
+            </div>
+            <div className="col-span-1">
+              <label className="block text-sm font-bold text-slate-700">
+                ZIP/Postal Code
+              </label>
+              <input
+                name="zip"
+                defaultValue={editingShippingAddress?.zip}
+                className="w-full border p-2 rounded mt-1 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Phone Number
+            </label>
+            <input
+              name="phone_number"
+              defaultValue={editingShippingAddress?.phone_number}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isSavingShippingAddress}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
+            >
+              {isSavingShippingAddress ? (
+                <RefreshCw size={18} className="mr-2 animate-spin" />
+              ) : null}
+              {isSavingShippingAddress ? "Saving..." : "Save Address"}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* RACK MAPPING MODAL */}
       <Modal
@@ -1088,18 +1342,12 @@ const Settings: React.FC = () => {
             <label className="block text-sm font-bold text-slate-700">
               Country
             </label>
-            <select
+            <input
               name="country"
               required
               className="w-full border p-2 rounded mt-1 bg-white"
-            >
-              <option value="">Select a Country</option>
-              {countriesData.map((country) => (
-                <option key={country.code} value={country.name}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
+              placeholder="e.g. USA"
+            />
           </div>
           <div className="flex justify-end pt-4">
             <button
@@ -1178,19 +1426,13 @@ const Settings: React.FC = () => {
             <label className="block text-sm font-bold text-slate-700">
               Country
             </label>
-            <select
+            <input
               name="country"
               required
               className="w-full border p-2 rounded mt-1 bg-white"
+              placeholder="e.g. USA"
               defaultValue={editingWarehouse?.country}
-            >
-              <option value="">Select a Country</option>
-              {countriesData.map((country) => (
-                <option key={country.code} value={country.name}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="flex justify-end pt-4">
             <button
