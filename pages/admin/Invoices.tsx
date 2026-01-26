@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FileText, CheckCircle, Clock, Eye, Plus } from "lucide-react";
+import { FileText, CheckCircle, Clock, Eye, Plus, X } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import Modal from "../../components/UI/Modal";
 import { useToast } from "../../context/ToastContext";
@@ -25,13 +25,18 @@ interface InvoiceRowData {
   currency: string;
 }
 
+interface InvoiceItem {
+  description: string;
+  amount: number;
+}
+
 interface PreviewData {
   user_id: number;
   user_full_name: string | undefined;
   user_email: string | undefined;
   due_date: string;
   currency: string;
-  amount: number;
+  items: InvoiceItem[];
   notes: string;
   type: string;
 }
@@ -55,21 +60,13 @@ const InvoicePreviewModal: React.FC<InvoicePreviewProps> = ({
 }) => {
   if (!isOpen || !invoiceData) return null;
 
-  const {
-    user_full_name,
-    user_email,
-    due_date,
-    currency,
-    amount,
-    notes,
-    type,
-  } = invoiceData;
+  const { user_full_name, user_email, due_date, currency, items, type } =
+    invoiceData;
 
   const currencySymbol = currency === "UGX" ? "UGX " : "$";
-  const subtotal = amount;
+  const subtotal = items.reduce((acc, item) => acc + item.amount, 0);
   const tax = 0.0;
   const total = subtotal + tax;
-  const description = notes || type;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Invoice Preview" size="xl">
@@ -128,13 +125,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewProps> = ({
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-4 py-3 text-slate-700">{description}</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-900">
-                  {currencySymbol}
-                  {formatMoney(amount)}
-                </td>
-              </tr>
+              {items.map((item, index) => (
+                <tr
+                  key={index}
+                  className="border-b border-slate-50 last:border-b-0"
+                >
+                  <td className="px-4 py-3 text-slate-700">
+                    {item.description}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-slate-900">
+                    {currencySymbol}
+                    {formatMoney(item.amount)}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
 
@@ -204,6 +208,39 @@ const Invoices: React.FC = () => {
   const [currency, setCurrency] = useState<string>("USD");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [items, setItems] = useState<InvoiceItem[]>([
+    { description: "", amount: 0.0 },
+  ]);
+
+  const handleItemChange = (
+    index: number,
+    field: keyof InvoiceItem,
+    value: string
+  ) => {
+    const newItems = [...items];
+    if (field === "amount") {
+      newItems[index][field] = parseFloat(value) || 0;
+    } else {
+      newItems[index][field] = value;
+    }
+    setItems(newItems);
+  };
+
+  const addItem = () => {
+    setItems([...items, { description: "", amount: 0.0 }]);
+  };
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index));
+    }
+  };
+
+  useEffect(() => {
+    if (isCreateOpen) {
+      setItems([{ description: "", amount: 0.0 }]);
+    }
+  }, [isCreateOpen]);
 
   const fetchInvoicesAndUsers = async () => {
     try {
@@ -243,14 +280,21 @@ const Invoices: React.FC = () => {
   const handlePreview = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const amount = parseFloat(formData.get("amount") as string);
     const userId = parseInt(formData.get("client") as string);
     const user = usersList.find((u) => u.id === userId);
     const currency = formData.get("currency") as string;
     const type = formData.get("type") as string;
+    const notes = formData.get("notes") as string;
 
-    if (!userId || !type || !amount || !currency) {
-      showToast("Please fill all required fields.", "error");
+    const hasInvalidItems = items.some(
+      (item) => !item.description.trim() || item.amount <= 0
+    );
+
+    if (!userId || !type || !currency || hasInvalidItems) {
+      showToast(
+        "Please fill all required fields, including item descriptions and amounts greater than 0.",
+        "error"
+      );
       return;
     }
 
@@ -259,8 +303,8 @@ const Invoices: React.FC = () => {
       user_full_name: user?.full_name,
       user_email: user?.email,
       type: type,
-      amount: amount,
-      notes: formData.get("notes") as string,
+      items: items,
+      notes: notes,
       currency: currency,
       due_date: new Date().toISOString().split("T")[0],
     };
@@ -285,12 +329,14 @@ const Invoices: React.FC = () => {
       // @ts-ignore
       const newInvoice = invoiceResponse.data;
 
-      await addItemToInvoice({
-        invoice_id: newInvoice.id,
-        description: previewData.notes || previewData.type,
-        quantity: 1,
-        unit_price: previewData.amount,
-      });
+      for (const item of previewData.items) {
+        await addItemToInvoice({
+          invoice_id: newInvoice.id,
+          description: item.description,
+          quantity: 1,
+          unit_price: item.amount,
+        });
+      }
 
       try {
         await sendInvoiceByEmail(newInvoice.id);
@@ -517,19 +563,55 @@ const Invoices: React.FC = () => {
               <option value="CUSTOMS">Customs Duty</option>
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Amount
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Invoice Items
             </label>
-            <input
-              name="amount"
-              type="number"
-              step="0.01"
-              required
-              placeholder="0.00"
-              className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900"
-            />
+            <div className="space-y-2">
+              {items.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Item description"
+                    value={item.description}
+                    onChange={(e) =>
+                      handleItemChange(index, "description", e.target.value)
+                    }
+                    className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900"
+                    required
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={item.amount}
+                    onChange={(e) =>
+                      handleItemChange(index, "amount", e.target.value)
+                    }
+                    className="w-32 border border-slate-300 rounded p-2 bg-white text-slate-900"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    className="p-2 text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={items.length <= 1}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addItem}
+              className="mt-2 text-sm text-primary-600 hover:text-primary-800 flex items-center"
+            >
+              <Plus size={16} className="mr-1" /> Add Item
+            </button>
           </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700">
               Currency
@@ -589,3 +671,4 @@ const Invoices: React.FC = () => {
 };
 
 export default Invoices;
+
