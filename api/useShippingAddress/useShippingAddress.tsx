@@ -11,21 +11,23 @@ const useShippingAddress = () => {
   const fetchShippingAddresses = async (page = 1) => {
     const { data: response } =
       await client.get<PaginatedShippingAddressesResponse>(
-        `/api/shipping-addresses?page=${page}`,
+        `api/shipping_address?page=${page}`,
       );
     return response;
   };
 
   const fetchShippingAddress = async (id: number) => {
     const { data: response } = await client.get<ShippingAddress>(
-      `/api/shipping-addresses/${id}`,
+      `/api/shipping_address/${id}`,
     );
     return response;
   };
 
-  const createShippingAddress = async (payload: CreateShippingAddressPayload) => {
+  const createShippingAddress = async (
+    payload: CreateShippingAddressPayload,
+  ) => {
     const { data: response } = await client.post<ShippingAddress>(
-      "/api/shipping-addresses",
+      "/api/shipping_address",
       payload,
     );
     return response;
@@ -36,7 +38,7 @@ const useShippingAddress = () => {
     payload: UpdateShippingAddressPayload,
   ) => {
     const { data: response } = await client.put<ShippingAddress>(
-      `/api/shipping-addresses/${id}`,
+      `/api/shipping_address/${id}`,
       payload,
     );
     return response;
@@ -44,7 +46,7 @@ const useShippingAddress = () => {
 
   const deleteShippingAddress = async (id: number) => {
     const { data: response } = await client.delete<MessageResponse>(
-      `/api/shipping-addresses/${id}`,
+      `/api/shipping_address/${id}`,
     );
     return response;
   };
