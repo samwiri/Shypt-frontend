@@ -105,6 +105,15 @@ const useAuth = () => {
     const { data } = await client.get(`/api/customers/${id}`);
     return data;
   };
+  interface createStaffPayload extends RegisterPayload {
+    user_type: "user" | "staff" | "super_user" | "agent";
+  }
+  const createStaffAccount = async (
+    payload: createStaffPayload,
+  ): Promise<RegisterResponse> => {
+    const { data } = await client.post("/api/auth/create_user", payload);
+    return data;
+  };
 
   const AllocateWareHouseToStaff = async ({
     user_id,
@@ -119,6 +128,14 @@ const useAuth = () => {
     });
     return data;
   };
+  const updateUser = async (
+    userId: number,
+    payload: Partial<AuthUser>,
+  ): Promise<AuthResponse> => {
+    const { data } = await client.put(`/api/auth/users/${userId}`, payload);
+    return data;
+  };
+
   return {
     logout,
     login,
@@ -132,6 +149,8 @@ const useAuth = () => {
     fetchCrmCustomers,
     fetchCrmCustomerById,
     AllocateWareHouseToStaff,
+    createStaffAccount,
+    updateUser,
   };
 };
 

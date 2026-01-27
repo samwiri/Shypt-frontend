@@ -53,7 +53,7 @@ export interface AuthUser {
   country?: string;
   otp: string;
   status: string;
-  user_type: "super_user" | "user" | "staff";
+  user_type: "super_user" | "user" | "staff" | "agent";
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

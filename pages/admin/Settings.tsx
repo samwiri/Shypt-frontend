@@ -41,8 +41,6 @@ import { AuthUser } from "../../api/types/auth";
 import useShippingAddress from "../../api/useShippingAddress/useShippingAddress";
 import { ShippingAddress } from "../../api/types/shippingAddress";
 
-
-
 // Define HSCode interface here, assuming it's used in this file or passed to children
 interface HSCode {
   id: string;
@@ -80,7 +78,12 @@ const Settings: React.FC = () => {
     deleteShippingAddress,
   } = useShippingAddress();
 
-  const { register, AllocateWareHouseToStaff, fetchAllUsers } = useAuth();
+  const {
+    createStaffAccount,
+    AllocateWareHouseToStaff,
+    fetchAllUsers,
+    updateUser,
+  } = useAuth();
   const [staff, setStaff] = useState<AuthUser[]>([]);
 
   // Modal States
@@ -93,6 +96,7 @@ const Settings: React.FC = () => {
     | "EDIT_WAREHOUSE"
     | "SHIPPING_ADDRESS"
     | "EDIT_SHIPPING_ADDRESS"
+    | "EDIT_STAFF"
     | null
   >(null);
 
@@ -102,6 +106,7 @@ const Settings: React.FC = () => {
     null,
   );
   const [isInvitingUser, setIsInvitingUser] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- GLOBAL STATE ---
   const [exchangeRate, setExchangeRate] = useState("3850");
@@ -208,15 +213,18 @@ const Settings: React.FC = () => {
       }
       // Fetch staff if the relevant tab is active AND the data hasn't been loaded yet.
       if (activeTab === "SECURITY" && staff.length === 0) {
+        setIsLoadingStaff(true);
         try {
           const res = await fetchAllUsers();
           console.log("user data", res.data);
           const staffUsers = res.data.filter(
-            (user) => user.user_type === "staff",
+            (user) => user.user_type !== "user",
           );
           setStaff(staffUsers);
         } catch (error) {
           showToast("Failed to fetch staff members", "error");
+        } finally {
+          setIsLoadingStaff(false);
         }
       }
       // Fetch shipping addresses if the relevant tab is active AND the data hasn't been loaded yet.
@@ -249,6 +257,7 @@ const Settings: React.FC = () => {
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [isAddingWarehouse, setIsAddingWarehouse] = useState(false);
   const [isAddingRack, setIsAddingRack] = useState(false);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   const [editingWarehouse, setEditingWarehouse] =
     useState<WareHouseLocation | null>(null);
   const [isEditingWarehouse, setIsEditingWarehouse] = useState(false);
@@ -258,8 +267,7 @@ const Settings: React.FC = () => {
     useState(false);
   const [editingShippingAddress, setEditingShippingAddress] =
     useState<ShippingAddress | null>(null);
-  const [isSavingShippingAddress, setIsSavingShippingAddress] =
-    useState(false);
+  const [isSavingShippingAddress, setIsSavingShippingAddress] = useState(false);
 
   // --- ACTIONS ---
   const handleSaveGlobal = () => {
@@ -274,12 +282,67 @@ const Settings: React.FC = () => {
     }, 2000);
   };
 
+  const handleToggleStatus = async (user: AuthUser) => {
+    const newStatus = user.status === "active" ? "suspended" : "active";
+    if (
+      !confirm(
+        `Are you sure you want to set ${user.full_name}'s status to ${newStatus}?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setIsLoadingStaff(true);
+      await updateUser(user.id, { status: newStatus });
+      showToast(`User status updated to ${newStatus}`, "success");
+      const allUsersRes = await fetchAllUsers();
+      const staffUsers = allUsersRes.data.filter((u) => u.user_type !== "user");
+      setStaff(staffUsers);
+    } catch (error) {
+      showToast("Failed to update user status", "error");
+    } finally {
+      setIsLoadingStaff(false);
+    }
+  };
+
+  const handleEditStaffSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedItem) return;
+
+    const fd = new FormData(e.currentTarget);
+    const payload: Partial<AuthUser> = {
+      full_name: fd.get("full_name") as string,
+      email: fd.get("email") as string,
+      phone: fd.get("phone") as string,
+    };
+
+    try {
+      setIsSubmitting(true);
+      await updateUser(selectedItem.id, payload);
+      showToast("Staff profile updated successfully", "success");
+
+      setIsLoadingStaff(true);
+      const allUsersRes = await fetchAllUsers();
+      const staffUsers = allUsersRes.data.filter((u) => u.user_type !== "user");
+      setStaff(staffUsers);
+
+      setModalType(null);
+      setSelectedItem(null);
+    } catch (error) {
+      showToast("Failed to update staff profile", "error");
+    } finally {
+      setIsSubmitting(false);
+      setIsLoadingStaff(false);
+    }
+  };
+
   const handleInviteUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsInvitingUser(true);
     const fd = new FormData(e.currentTarget);
     const password = fd.get("password") as string;
     const password_confirmation = fd.get("password_confirmation") as string;
+    const user_type = fd.get("user_type") as "super_user" | "staff" | "agent";
 
     if (password !== password_confirmation) {
       showToast("Passwords do not match", "error");
@@ -293,14 +356,33 @@ const Settings: React.FC = () => {
       phone: fd.get("phone") as string,
       password: password,
       password_confirmation: password_confirmation,
-      user_type: "staff",
+      user_type: user_type,
     };
 
     try {
-      const res = await register(payload as any);
-      setNewlyCreatedStaff(res.data);
+      const res = await createStaffAccount(payload);
       showToast("Staff member created successfully!", "success");
-      setInviteStep(2);
+
+      if (user_type === "staff") {
+        setNewlyCreatedStaff(res.data);
+        setInviteStep(2);
+      } else {
+        setIsLoadingStaff(true);
+        try {
+          const allUsersRes = await fetchAllUsers();
+          const staffUsers = allUsersRes.data.filter(
+            (user) => user.user_type !== "user",
+          );
+          setStaff(staffUsers);
+          setModalType(null);
+          setInviteStep(1);
+          setNewlyCreatedStaff(null);
+        } catch (error) {
+          showToast("Failed to fetch staff members after creation", "error");
+        } finally {
+          setIsLoadingStaff(false);
+        }
+      }
     } catch (error) {
       showToast("Failed to create staff member", "error");
     } finally {
@@ -327,10 +409,21 @@ const Settings: React.FC = () => {
         `Assigned ${newlyCreatedStaff.full_name} to warehouse`,
         "success",
       );
-      setStaff([...staff, newlyCreatedStaff]);
-      setModalType(null);
-      setInviteStep(1);
-      setNewlyCreatedStaff(null);
+      setIsLoadingStaff(true);
+      try {
+        const allUsersRes = await fetchAllUsers();
+        const staffUsers = allUsersRes.data.filter(
+          (user) => user.user_type !== "user",
+        );
+        setStaff(staffUsers);
+        setModalType(null);
+        setInviteStep(1);
+        setNewlyCreatedStaff(null);
+      } catch (error) {
+        showToast("Failed to fetch staff members after assignment", "error");
+      } finally {
+        setIsLoadingStaff(false);
+      }
     } catch (error) {
       showToast("Failed to assign warehouse", "error");
     } finally {
@@ -484,7 +577,9 @@ const Settings: React.FC = () => {
   };
 
   const handleDeleteAddress = async (addr: ShippingAddress) => {
-    if (confirm(`Are you sure you want to delete the address for ${addr.name}?`)) {
+    if (
+      confirm(`Are you sure you want to delete the address for ${addr.name}?`)
+    ) {
       try {
         await deleteShippingAddress(addr.id);
         setShippingAddresses(shippingAddresses.filter((a) => a.id !== addr.id));
@@ -916,9 +1011,11 @@ const Settings: React.FC = () => {
           {activeTab === "SECURITY" && (
             <SecurityTab
               staff={staff}
+              isLoadingStaff={isLoadingStaff}
               // @ts-ignore
               setModalType={setModalType}
               setSelectedItem={setSelectedItem}
+              handleToggleStatus={handleToggleStatus}
             />
           )}
         </div>
@@ -1209,7 +1306,7 @@ const Settings: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-slate-900 text-white p-4 rounded-lg flex items-center">
             <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center mr-3 font-bold text-primary-400">
-              {selectedItem?.name.charAt(0)}
+              {selectedItem?.name?.charAt(0)}
             </div>
             <div>
               <p className="font-bold">{selectedItem?.name}</p>
@@ -1501,6 +1598,21 @@ const Settings: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700">
+                User Type
+              </label>
+              <select
+                name="user_type"
+                required
+                className="w-full border p-2 rounded mt-1 bg-white"
+                defaultValue="staff"
+              >
+                <option value="super_user">Super User</option>
+                <option value="staff">Staff</option>
+                <option value="agent">Agent</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700">
                 Password
               </label>
               <input
@@ -1566,6 +1678,65 @@ const Settings: React.FC = () => {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* EDIT STAFF MODAL */}
+      <Modal
+        isOpen={modalType === "EDIT_STAFF"}
+        onClose={() => {
+          setModalType(null);
+          setSelectedItem(null);
+        }}
+        title={`Edit Staff: ${selectedItem?.full_name}`}
+      >
+        <form onSubmit={handleEditStaffSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Full Name
+            </label>
+            <input
+              name="full_name"
+              required
+              defaultValue={selectedItem?.full_name}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Email Address
+            </label>
+            <input
+              name="email"
+              type="email"
+              required
+              defaultValue={selectedItem?.email}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700">
+              Phone Number
+            </label>
+            <input
+              name="phone"
+              required
+              defaultValue={selectedItem?.phone}
+              className="w-full border p-2 rounded mt-1 bg-white"
+            />
+          </div>
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 font-bold shadow-md flex items-center justify-center disabled:bg-primary-400"
+            >
+              {isSubmitting ? (
+                <RefreshCw size={18} className="mr-2 animate-spin" />
+              ) : null}
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

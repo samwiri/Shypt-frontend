@@ -1,17 +1,22 @@
 import React from "react";
-import { Shield, Plus, Lock } from "lucide-react";
+import { Shield, Plus, Lock, Unlock, Edit } from "lucide-react";
 import { AuthUser } from "../../../api/types/auth";
+import StatusBadge from "../../../components/UI/StatusBadge";
 
 interface SecurityTabProps {
   staff: AuthUser[];
+  isLoadingStaff: boolean;
   setModalType: (type: string | null) => void;
   setSelectedItem: (item: any) => void;
+  handleToggleStatus: (user: AuthUser) => void;
 }
 
 const SecurityTab: React.FC<SecurityTabProps> = ({
   staff,
   setModalType,
   setSelectedItem,
+  isLoadingStaff,
+  handleToggleStatus,
 }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -47,54 +52,88 @@ const SecurityTab: React.FC<SecurityTabProps> = ({
           </button>
         </div>
 
-        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="border border-slate-200 rounded-xl overflow-scroll shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-widest">
               <tr>
                 <th className="p-4">User</th>
                 <th className="p-4">Role</th>
-                <th className="p-4">Permissions</th>
+                <th className="p-4">Status</th>
+                {/* <th className="p-4">Permissions</th> */}
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {staff.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50 transition">
-                  <td className="p-4">
-                    <div className="font-bold text-slate-900">
-                      {s.full_name}
-                    </div>
-                    <div className="text-xs text-slate-500">{s.email}</div>
-                  </td>
-                  <td className="p-4 text-slate-600 font-medium">
-                    {s.user_type}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-wrap gap-1">
-                      {(s as any).permissions?.map((p: string) => (
-                        <span
-                          key={p}
-                          className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-bold"
-                        >
-                          {p}
-                        </span>
-                      )) || "No permissions"}
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => {
-                        setSelectedItem(s);
-                        setModalType("PERMISSIONS");
-                      }}
-                      className="text-primary-600 hover:bg-primary-50 p-1.5 rounded transition"
-                      title="Edit Permissions"
-                    >
-                      <Lock size={16} />
-                    </button>
+              {isLoadingStaff ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-slate-500">
+                    Loading staff members...
                   </td>
                 </tr>
-              ))}
+              ) : staff.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-slate-500">
+                    No staff members found.
+                  </td>
+                </tr>
+              ) : (
+                staff.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50 transition">
+                    <td className="p-4">
+                      <div className="font-bold text-slate-900">
+                        {s.full_name}
+                      </div>
+                      <div className="text-xs text-slate-500">{s.email}</div>
+                    </td>
+                    <td className="p-4 text-slate-600 font-medium">
+                      {s.user_type}
+                    </td>
+                    <td className="p-4">
+                      <StatusBadge
+                        status={s.status ? s.status.toUpperCase() : "UNKNOWN"}
+                      />
+                    </td>
+                    {/* <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {(s as any).permissions?.map((p: string) => (
+                          <span
+                            key={p}
+                            className="bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 font-bold"
+                          >
+                            {p}
+                          </span>
+                        )) || "No permissions"}
+                      </div>
+                    </td> */}
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            console.log(s);
+                            setSelectedItem(s);
+                            setModalType("EDIT_STAFF");
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 rounded transition"
+                          title="Edit Profile"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(s)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded transition"
+                          title={s.status === "active" ? "Suspend" : "Activate"}
+                        >
+                          {s.status === "active" ? (
+                            <Lock size={16} />
+                          ) : (
+                            <Unlock size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
