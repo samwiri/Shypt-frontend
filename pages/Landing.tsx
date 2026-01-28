@@ -189,7 +189,9 @@ const Landing: React.FC = () => {
       // Only apply OTP for ADMIN mode logins if the user is an admin
       if (loginMode === "ADMIN") {
         const isAdmin =
-          user.user_type === "super_user" || user.user_type === "staff";
+          user.user_type === "super_user" ||
+          user.user_type === "staff" ||
+          user.user_type === "agent";
         // Temporarily disabled OTP for admin as 2FA is not yet implemented in the backend
         if (isAdmin) {
           // setAdminOtp(user.otp);

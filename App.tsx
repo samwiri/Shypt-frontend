@@ -182,7 +182,9 @@ const ProtectedRoute: React.FC<{ role: "ADMIN" | "CLIENT" }> = ({ role }) => {
   }
 
   const userRole =
-    user?.user_type === "super_user" || user?.user_type === "staff"
+    user?.user_type === "super_user" ||
+    user?.user_type === "staff" ||
+    user?.user_type === "agent"
       ? "ADMIN"
       : "CLIENT";
 

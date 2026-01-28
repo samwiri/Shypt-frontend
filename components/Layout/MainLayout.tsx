@@ -36,7 +36,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   useEffect(() => {
     const isAdmin =
-      user?.user_type === "super_user" || user?.user_type === "staff";
+      user?.user_type === "super_user" ||
+      user?.user_type === "staff" ||
+      user?.user_type === "agent";
     if (isAdmin || currentPath === "/client/settings") {
       return;
     }
@@ -58,7 +60,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           ) {
             showToast(
               "Welcome! Please complete your address details to get started.",
-              "info"
+              "info",
             );
             navigate("/client/settings");
           }

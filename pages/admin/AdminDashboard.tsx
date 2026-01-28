@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import StatusBadge from "../../components/UI/StatusBadge";
 import useDashboard from "@/api/dashboard/useDashboard";
+import { useAuthContext } from "@/context/AuthContext";
 import { Counters } from "@/api/types/dashboard";
 import { useLocation } from "react-router-dom";
 import useOrders from "../../api/orders/useOrders";
@@ -52,6 +53,7 @@ interface RecentHwb {
 }
 
 const AdminDashboard: React.FC = () => {
+  const { user } = useAuthContext();
   const [counters, setCounters] = useState<Counters | null>(null);
   const { pathname } = useLocation();
   const { fetchDashboard } = useDashboard();
@@ -62,39 +64,43 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     fetchDashboard().then(setCounters).catch(console.error);
 
-    setHwbsLoading(true);
-    getOrders()
-      .then((response) => {
-        const orders: Order[] = response.data?.data || [];
-        console.log("orders", orders);
-        const allPackages = orders.flatMap((order) =>
-          order.packages.map((pkg) => ({
-            id: pkg.hwb_number,
-            user: order.user.full_name,
-            // @ts-ignore
-            mawb: pkg.consolidation_batch_id
-              ? // @ts-ignore
-                `MAWB-${pkg.consolidation_batch_id}`
-              : "-",
-            status: order.status,
-            date: timeAgo(pkg.created_at),
-            createdAt: pkg.created_at,
-          }))
-        );
+    if (user?.user_type !== "agent") {
+      setHwbsLoading(true);
+      getOrders()
+        .then((response) => {
+          const orders: Order[] = response.data?.data || [];
+          console.log("orders", orders);
+          const allPackages = orders.flatMap((order) =>
+            order.packages.map((pkg) => ({
+              id: pkg.hwb_number,
+              user: order.user.full_name,
+              // @ts-ignore
+              mawb: pkg.consolidation_batch_id
+                ? // @ts-ignore
+                  `MAWB-${pkg.consolidation_batch_id}`
+                : "-",
+              status: order.status,
+              date: timeAgo(pkg.created_at),
+              createdAt: pkg.created_at,
+            })),
+          );
 
-        const sortedPackages = allPackages.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setRecentHwbs(sortedPackages.slice(0, 5));
-      })
-      .catch((error) => {
-        console.error("Failed to fetch recent HWBs", error);
-      })
-      .finally(() => {
-        setHwbsLoading(false);
-      });
-  }, [pathname]);
+          const sortedPackages = allPackages.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+          setRecentHwbs(sortedPackages.slice(0, 5));
+        })
+        .catch((error) => {
+          console.error("Failed to fetch recent HWBs", error);
+        })
+        .finally(() => {
+          setHwbsLoading(false);
+        });
+    } else {
+      setHwbsLoading(false);
+    }
+  }, [pathname, user]);
 
   const stats = [
     {
@@ -172,131 +178,140 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity Table */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200">
-          <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="font-semibold text-slate-800">
-              Recent House Waybills (HWBs)
-            </h3>
-            <a
-              href="#"
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              View All
-            </a>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-6 py-3 text-left font-medium">
-                    HWB Number
-                  </th>
-                  <th className="px-6 py-3 text-left font-medium">Client</th>
-                  <th className="px-6 py-3 text-left font-medium">MAWB</th>
-                  <th className="px-6 py-3 text-left font-medium">Status</th>
-                  <th className="px-6 py-3 text-right font-medium">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {hwbsLoading ? (
+      {user?.user_type !== "agent" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Activity Table */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="font-semibold text-slate-800">
+                Recent House Waybills (HWBs)
+              </h3>
+              <a
+                href="#"
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                View All
+              </a>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
-                    <td colSpan={5} className="text-center p-8 text-slate-500">
-                      Loading recent waybills...
-                    </td>
+                    <th className="px-6 py-3 text-left font-medium">
+                      HWB Number
+                    </th>
+                    <th className="px-6 py-3 text-left font-medium">Client</th>
+                    <th className="px-6 py-3 text-left font-medium">MAWB</th>
+                    <th className="px-6 py-3 text-left font-medium">Status</th>
+                    <th className="px-6 py-3 text-right font-medium">Time</th>
                   </tr>
-                ) : recentHwbs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center p-8 text-slate-500">
-                      No recent house waybills found.
-                    </td>
-                  </tr>
-                ) : (
-                  recentHwbs.map((hwb) => (
-                    <tr key={hwb.id} className="hover:bg-slate-50 transition">
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                        {hwb.id}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {hwb.user}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 font-mono text-xs">
-                        {hwb.mawb}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={hwb.status} />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 text-right">
-                        {hwb.date}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {hwbsLoading ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="text-center p-8 text-slate-500"
+                      >
+                        Loading recent waybills...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : recentHwbs.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="text-center p-8 text-slate-500"
+                      >
+                        No recent house waybills found.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentHwbs.map((hwb) => (
+                      <tr key={hwb.id} className="hover:bg-slate-50 transition">
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {hwb.id}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {hwb.user}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600 font-mono text-xs">
+                          {hwb.mawb}
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={hwb.status} />
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 text-right">
+                          {hwb.date}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Action Required */}
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-800">Pending Actions</h3>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-md">
+                <div className="flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-red-800">
+                      Compliance Hold
+                    </h4>
+                    <p className="text-xs text-red-600 mt-1">
+                      HWB-9932 requires inspection. Lithium batteries
+                      suspected.
+                    </p>
+                    <button className="mt-2 text-xs font-semibold text-red-700 hover:text-red-800">
+                      Review Case &rarr;
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                <div className="flex items-start">
+                  <DollarSign className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-yellow-800">
+                      Payment Verification
+                    </h4>
+                    <p className="text-xs text-yellow-600 mt-1">
+                      3 large Sea Freight invoices pending manual check.
+                    </p>
+                    <button className="mt-2 text-xs font-semibold text-yellow-700 hover:text-yellow-800">
+                      Verify Payments &rarr;
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
+                <div className="flex items-start">
+                  <Package className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div className="ml-3">
+                    <h4 className="text-sm font-medium text-blue-800">
+                      Consolidation Ready
+                    </h4>
+                    <p className="text-xs text-blue-600 mt-1">
+                      15 Air Freight HWBs ready for MAWB generation.
+                    </p>
+                    <button className="mt-2 text-xs font-semibold text-blue-700 hover:text-blue-800">
+                      Create MAWB &rarr;
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Action Required */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h3 className="font-semibold text-slate-800">Pending Actions</h3>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="p-3 bg-red-50 border border-red-100 rounded-md">
-              <div className="flex items-start">
-                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div className="ml-3">
-                  <h4 className="text-sm font-medium text-red-800">
-                    Compliance Hold
-                  </h4>
-                  <p className="text-xs text-red-600 mt-1">
-                    HWB-9932 requires inspection. Lithium batteries suspected.
-                  </p>
-                  <button className="mt-2 text-xs font-semibold text-red-700 hover:text-red-800">
-                    Review Case &rarr;
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-md">
-              <div className="flex items-start">
-                <DollarSign className="w-5 h-5 text-yellow-600 mt-0.5" />
-                <div className="ml-3">
-                  <h4 className="text-sm font-medium text-yellow-800">
-                    Payment Verification
-                  </h4>
-                  <p className="text-xs text-yellow-600 mt-1">
-                    3 large Sea Freight invoices pending manual check.
-                  </p>
-                  <button className="mt-2 text-xs font-semibold text-yellow-700 hover:text-yellow-800">
-                    Verify Payments &rarr;
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-100 rounded-md">
-              <div className="flex items-start">
-                <Package className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div className="ml-3">
-                  <h4 className="text-sm font-medium text-blue-800">
-                    Consolidation Ready
-                  </h4>
-                  <p className="text-xs text-blue-600 mt-1">
-                    15 Air Freight HWBs ready for MAWB generation.
-                  </p>
-                  <button className="mt-2 text-xs font-semibold text-blue-700 hover:text-blue-800">
-                    Create MAWB &rarr;
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

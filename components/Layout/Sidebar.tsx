@@ -133,11 +133,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       path: "/client/shipments",
       icon: <Package size={20} />,
     },
-    {
-      name: "My Deliveries",
-      path: "/client/deliveries",
-      icon: <Truck size={20} />,
-    },
+    // {
+    //   name: "My Deliveries",
+    //   path: "/client/deliveries",
+    //   icon: <Truck size={20} />,
+    // },
     {
       name: "Document Center",
       path: "/client/document-center",
@@ -171,9 +171,39 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const isAdmin =
-    user?.user_type === "super_user" || user?.user_type === "staff";
-  const links = isAdmin ? adminLinks : clientLinks;
+  const agentLinks = [
+    { name: "Dashboard", path: "/admin/dashboard", icon: <Home size={20} /> },
+    {
+      name: "Last Mile Delivery",
+      path: "/admin/delivery",
+      icon: <Truck size={20} />,
+    },
+  ];
+
+  const staffLinks = adminLinks.filter(
+    (link) =>
+      ![
+        "Settings",
+        "Document Center",
+        "Reports",
+        "Compliance",
+      ].includes(link.name)
+  );
+
+  const getLinks = () => {
+    switch (user?.user_type) {
+      case "super_user":
+        return adminLinks;
+      case "staff":
+        return staffLinks;
+      case "agent":
+        return agentLinks;
+      default:
+        return clientLinks;
+    }
+  };
+
+  const links = getLinks();
 
   const getInitials = (name: string | undefined) => {
     if (!name) return "U";

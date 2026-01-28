@@ -3,6 +3,7 @@ import { Plus, Eye, Loader2, User, Phone } from "lucide-react"; // Added User, P
 import { DataTable, Column } from "../../components/UI/DataTable";
 import Modal from "../../components/UI/Modal";
 import { useToast } from "../../context/ToastContext";
+import { useAuthContext } from "../../context/AuthContext";
 import useDelivery from "../../api/delivery/useDelivery";
 import { Delivery, CreateDeliveryOrderPayload } from "../../api/types/delivery";
 import useOrders from "../../api/orders/useOrders";
@@ -11,6 +12,7 @@ import StatusBadge from "../../components/UI/StatusBadge";
 import { Truck } from "lucide-react";
 
 const DeliveryOrders: React.FC = () => {
+  const { user } = useAuthContext();
   const { showToast } = useToast();
   const { listDeliveryOrders, createDeliveryOrder, updateDeliveryOrderStatus } =
     useDelivery();
@@ -38,21 +40,29 @@ const DeliveryOrders: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [deliveriesRes, ordersRes] = await Promise.allSettled([
-        listDeliveryOrders(),
-        getOrders(),
-      ]);
+      const deliveryPromise = listDeliveryOrders();
 
-      if (deliveriesRes.status === "fulfilled") {
-        setDeliveries(deliveriesRes.value.data);
+      if (user?.user_type === "agent") {
+        const deliveriesRes = await deliveryPromise;
+        setDeliveries(deliveriesRes.data);
       } else {
-        showToast("Failed to fetch delivery orders", "error");
-      }
+        const ordersPromise = getOrders();
+        const [deliveriesRes, ordersRes] = await Promise.allSettled([
+          deliveryPromise,
+          ordersPromise,
+        ]);
 
-      if (ordersRes.status === "fulfilled") {
-        setOrders(ordersRes.value.data.data);
-      } else {
-        showToast("Failed to fetch orders", "error");
+        if (deliveriesRes.status === "fulfilled") {
+          setDeliveries(deliveriesRes.value.data);
+        } else {
+          showToast("Failed to fetch delivery orders", "error");
+        }
+
+        if (ordersRes.status === "fulfilled") {
+          setOrders(ordersRes.value.data.data);
+        } else {
+          showToast("Failed to fetch orders", "error");
+        }
       }
     } catch (error) {
       showToast("An error occurred while fetching data.", "error");
@@ -62,8 +72,10 @@ const DeliveryOrders: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const handleCreateDelivery = async () => {
     if (!selectedOrderId || !deliveryAddress || !deliveryDate) {
@@ -220,6 +232,12 @@ const DeliveryOrders: React.FC = () => {
     },
   ];
 
+  const isAgent = user?.user_type === "agent";
+
+  const displayedDeliveries = isAgent
+    ? deliveries.filter((d) => d.rider_id === user?.id)
+    : deliveries;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -234,9 +252,9 @@ const DeliveryOrders: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-2">
+        <div className={isAgent ? "col-span-3" : "col-span-2"}>
           <DataTable
-            data={deliveries}
+            data={displayedDeliveries}
             columns={columns}
             loading={loading}
             onRowClick={(delivery) =>
@@ -245,152 +263,158 @@ const DeliveryOrders: React.FC = () => {
             title="Dispatch Board"
             searchPlaceholder="Search Deliveries..."
             primaryAction={
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700 transition flex items-center shadow-sm"
-              >
-                <Plus size={16} className="mr-2" />
-                Create Delivery Order
-              </button>
+              !isAgent && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700 transition flex items-center shadow-sm"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Create Delivery Order
+                </button>
+              )
             }
           />
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-              <Truck size={18} className="mr-2" /> Active Drivers
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center mr-3">
-                    <User size={16} />
+        {!isAgent && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                <Truck size={18} className="mr-2" /> Active Drivers
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center mr-3">
+                      <User size={16} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Mike (Boda)</p>
+                      <p className="text-xs text-green-600">Available</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Mike (Boda)</p>
-                    <p className="text-xs text-green-600">Available</p>
-                  </div>
+                  <Phone size={16} className="text-slate-400" />
                 </div>
-                <Phone size={16} className="text-slate-400" />
-              </div>
-              <div className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center mr-3">
-                    <User size={16} />
+                <div className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center mr-3">
+                      <User size={16} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Sam (Van)</p>
+                      <p className="text-xs text-orange-600">On Delivery</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Sam (Van)</p>
-                    <p className="text-xs text-orange-600">On Delivery</p>
-                  </div>
+                  <Phone size={16} className="text-slate-400" />
                 </div>
-                <Phone size={16} className="text-slate-400" />
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Create New Delivery Order"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="order"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Select Order
-            </label>
-            <select
-              id="order"
-              name="order"
-              onChange={(e) => setSelectedOrderId(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Select an order
-              </option>
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.tracking_number} ({o.user.full_name})
+      {!isAgent && (
+        <Modal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          title="Create New Delivery Order"
+          size="md"
+        >
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="order"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Select Order
+              </label>
+              <select
+                id="order"
+                name="order"
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select an order
                 </option>
-              ))}
-            </select>
+                {orders.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.tracking_number} ({o.user.full_name})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="delivery_address"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Delivery Address
+              </label>
+              <input
+                type="text"
+                id="delivery_address"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="delivery_date"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Delivery Date
+              </label>
+              <input
+                type="date"
+                id="delivery_date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="delivery_notes"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Delivery Notes
+              </label>
+              <textarea
+                id="delivery_notes"
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              ></textarea>
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDelivery}
+                disabled={isSubmittingCreateDelivery}
+                className="px-10 py-3 rounded-xl text-sm font-bold transition-all shadow-xl flex justify-center items-center bg-primary-600 text-white hover:bg-primary-700 shadow-primary-200 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
+                {isSubmittingCreateDelivery ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-3" /> Creating...
+                  </>
+                ) : (
+                  "Create Delivery"
+                )}
+              </button>
+            </div>
           </div>
-          <div>
-            <label
-              htmlFor="delivery_address"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Delivery Address
-            </label>
-            <input
-              type="text"
-              id="delivery_address"
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="delivery_date"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Delivery Date
-            </label>
-            <input
-              type="date"
-              id="delivery_date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="delivery_notes"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Delivery Notes
-            </label>
-            <textarea
-              id="delivery_notes"
-              value={deliveryNotes}
-              onChange={(e) => setDeliveryNotes(e.target.value)}
-              rows={3}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            ></textarea>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(false)}
-              className="px-6 py-3 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateDelivery}
-              disabled={isSubmittingCreateDelivery}
-              className="px-10 py-3 rounded-xl text-sm font-bold transition-all shadow-xl flex justify-center items-center bg-primary-600 text-white hover:bg-primary-700 shadow-primary-200 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
-            >
-              {isSubmittingCreateDelivery ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-3" /> Creating...
-                </>
-              ) : (
-                "Create Delivery"
-              )}
-            </button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
 
       <Modal
         isOpen={isDispatchModalOpen}
@@ -426,5 +450,4 @@ const DeliveryOrders: React.FC = () => {
     </div>
   );
 };
-
 export default DeliveryOrders;
