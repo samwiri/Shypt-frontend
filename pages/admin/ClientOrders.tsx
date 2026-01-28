@@ -63,7 +63,7 @@ const ClientOrders: React.FC = () => {
     }
 
     const declaration = cargoDeclarations.find(
-      (d) => d.id === Number(selectedDeclarationId)
+      (d) => d.id === Number(selectedDeclarationId),
     );
     if (!declaration) {
       showToast("Selected cargo declaration not found.", "error");
@@ -113,6 +113,11 @@ const ClientOrders: React.FC = () => {
       sortKey: "id",
     },
     {
+      header: "Date",
+      accessor: (order) => new Date(order.created_at).toLocaleString(),
+      sortKey: "created_at",
+    },
+    {
       header: "Client",
       accessor: (order) => (
         <div>
@@ -120,9 +125,8 @@ const ClientOrders: React.FC = () => {
           <div className="font-medium text-slate-900">
             {order.user.full_name}
           </div>
-          <div className="text-xs text-slate-500">
-            {new Date(order.created_at).toLocaleDateString()}
-          </div>
+          <div className="text-xs text-slate-500">{order.user.email}</div>
+          <div className="text-xs text-slate-500">{order.user.phone}</div>
         </div>
       ),
       // @ts-ignore
