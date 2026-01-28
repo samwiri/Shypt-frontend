@@ -24,6 +24,8 @@ import {
 import useAuth from "@/api/auth/useAuth";
 import { AuthUser } from "@/api/types/auth";
 
+import { DataTable, Column } from "../../components/UI/DataTable";
+
 // Helper function for currency formatting
 const formatCurrency = (amount: number, currency: string | undefined) => {
   const symbol = currency === "UGX" ? "UGX " : "$";
@@ -231,6 +233,113 @@ const Payments: React.FC = () => {
     (i) => i.status.toUpperCase() !== "COMPLETED"
   );
 
+  const columns: Column<LocalPayment>[] = [
+    {
+      header: "Payment ID",
+      accessor: (pay) => (
+        <span className="font-mono text-xs text-primary-600 font-bold hover:underline">
+          {pay.id}
+        </span>
+      ),
+      sortKey: "id",
+    },
+    {
+      header: "Date",
+      accessor: (pay) =>
+        new Date(pay.paid_at).toLocaleString("en-US", {
+          dateStyle: "short",
+          timeStyle: "short",
+        }),
+      sortKey: "paid_at",
+    },
+    {
+      header: "Client",
+      accessor: (pay) => (
+        <div>
+          <div className="font-medium text-slate-800">{pay.client}</div>
+          {pay.user?.email && (
+            <div className="text-xs text-slate-400 font-normal">
+              {pay.user.email}
+            </div>
+          )}
+        </div>
+      ),
+      sortKey: "client",
+    },
+    {
+      header: "Method / Ref",
+      accessor: (pay) => (
+        <div>
+          <div className="text-xs font-bold text-slate-600">
+            {pay?.method.replace("_", " ")}
+          </div>
+          <div className="text-xs text-slate-400 font-mono">
+            {pay.transaction_reference}
+          </div>
+        </div>
+      ),
+      sortKey: "method",
+    },
+    {
+      header: "Amount",
+      accessor: (pay) => (
+        <span className="font-bold text-green-700">
+          {formatCurrency(Number(pay.amount), pay.invoiceCurrency)}
+        </span>
+      ),
+      sortKey: "amount",
+      className: "text-right",
+    },
+    {
+      header: "Linked Invoices",
+      accessor: (pay) =>
+        pay.linkedInvoices && pay.linkedInvoices.length > 0 ? (
+          pay.linkedInvoices.map((inv) => (
+            <span
+              key={inv}
+              className="block text-primary-600 hover:underline cursor-pointer"
+            >
+              {inv}
+            </span>
+          ))
+        ) : (
+          <span className="text-slate-400 italic">Unallocated</span>
+        ),
+    },
+    {
+      header: "Status",
+      accessor: (pay) => <StatusBadge status={pay.status || ""} />,
+      sortKey: "status",
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      accessor: (pay) => (
+        <div className="flex justify-end space-x-2">
+          <button
+            className="text-slate-400 hover:text-primary-600"
+            title="View Details"
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerNav(`/admin/payments/${pay.id}`);
+            }}
+          >
+            <Eye size={18} />
+          </button>
+          {pay.status === "PENDING" && (
+            <button
+              onClick={(e) => handleVerify(e, pay.id)}
+              className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center"
+              title="Verify Payment"
+            >
+              <CheckCircle size={18} />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -281,125 +390,14 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800">Transaction History</h3>
-          <div className="relative w-64">
-            <input
-              type="text"
-              placeholder="Search Reference or Client..."
-              className="w-full pl-9 pr-4 py-1.5 text-sm border border-slate-300 rounded-md focus:ring-primary-500 focus:border-primary-500 bg-white text-slate-900"
-            />
-            <Search
-              className="absolute left-3 top-2 text-slate-400"
-              size={14}
-            />
-          </div>
-        </div>
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium">
-            <tr>
-              <th className="px-6 py-3">Payment ID</th>
-              <th className="px-6 py-3">Date</th>
-              <th className="px-6 py-3">Client</th>
-              <th className="px-6 py-3">Method / Ref</th>
-              <th className="px-6 py-3">Amount</th>
-              <th className="px-6 py-3">Linked Invoices</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              <tr>
-                <td colSpan={8} className="text-center p-8 text-slate-500">
-                  Loading payments...
-                </td>
-              </tr>
-            ) : (
-              payments.map((pay) => (
-                <tr
-                  key={pay.id}
-                  className="hover:bg-slate-50 transition cursor-pointer"
-                  onClick={() => triggerNav(`/admin/payments/${pay.id}`)}
-                >
-                  <td className="px-6 py-4 font-medium text-slate-900">
-                    <span className="text-primary-600 hover:underline">
-                      {pay.id}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {new Date(pay.paid_at).toLocaleString("en-US", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-800">
-                    {pay.client}
-                    {pay.user?.email && (
-                      <div className="text-xs text-slate-400 font-normal">
-                        {pay.user.email}
-                      </div>
-                    )}
-                    {pay.user?.phone && (
-                      <div className="text-xs text-slate-400 font-normal">
-                        {pay.user.phone}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-xs font-bold text-slate-600">
-                      {pay?.method.replace("_", " ")}
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono">
-                      {pay.transaction_reference}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-green-700">
-                    {formatCurrency(Number(pay.amount), pay.invoiceCurrency)}
-                  </td>
-                  <td className="px-6 py-4 text-xs">
-                    {pay.linkedInvoices && pay.linkedInvoices.length > 0 ? (
-                      pay.linkedInvoices.map((inv) => (
-                        <span
-                          key={inv}
-                          className="block text-primary-600 hover:underline cursor-pointer"
-                        >
-                          {inv}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400 italic">Unallocated</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={pay.status || ""} />
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        className="text-slate-400 hover:text-primary-600"
-                        title="View Details"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      {pay.status === "PENDING" && (
-                        <button
-                          onClick={(e) => handleVerify(e, pay.id)}
-                          className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center"
-                          title="Verify Payment"
-                        >
-                          <CheckCircle size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={payments}
+        loading={loading}
+        onRowClick={(pay) => triggerNav(`/admin/payments/${pay.id}`)}
+        title="Transaction History"
+        searchPlaceholder="Search by any field..."
+      />
 
       {/* RECORD PAYMENT MODAL */}
       <Modal
