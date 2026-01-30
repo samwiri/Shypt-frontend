@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Save,
   Globe,
@@ -229,19 +229,8 @@ const Settings: React.FC = () => {
         }
       }
       // Fetch shipping addresses if the relevant tab is active AND the data hasn't been loaded yet.
-      if (
-        activeTab === "SHIPPING_ADDRESSES" &&
-        shippingAddresses.length === 0
-      ) {
-        setIsLoadingShippingAddresses(true);
-        try {
-          const res = await fetchShippingAddresses();
-          setShippingAddresses(res.data);
-        } catch (error) {
-          showToast("Failed to fetch shipping addresses", "error");
-        } finally {
-          setIsLoadingShippingAddresses(false);
-        }
+      if (activeTab === "SHIPPING_ADDRESSES") {
+        await refreshShippingAddresses();
       }
     };
     loadData();
@@ -250,8 +239,8 @@ const Settings: React.FC = () => {
     warehouses.length,
     racks.length,
     staff.length,
-    shippingAddresses.length,
     modalType,
+    // refreshShippingAddresses,
   ]);
 
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -269,6 +258,18 @@ const Settings: React.FC = () => {
   const [editingShippingAddress, setEditingShippingAddress] =
     useState<ShippingAddress | null>(null);
   const [isSavingShippingAddress, setIsSavingShippingAddress] = useState(false);
+
+  const refreshShippingAddresses = useCallback(async () => {
+    setIsLoadingShippingAddresses(true);
+    try {
+      const res = await fetchShippingAddresses();
+      setShippingAddresses(res.data);
+    } catch (error) {
+      showToast("Failed to fetch shipping addresses", "error");
+    } finally {
+      setIsLoadingShippingAddresses(false);
+    }
+  }, [fetchShippingAddresses, setShippingAddresses, showToast]);
 
   // --- ACTIONS ---
   const handleSaveGlobal = () => {
@@ -553,21 +554,15 @@ const Settings: React.FC = () => {
 
     try {
       if (editingShippingAddress) {
-        const res = await updateShippingAddress(
-          editingShippingAddress.id,
-          payload,
-        );
-        setShippingAddresses(
-          shippingAddresses.map((a) => (a.id === res.id ? res : a)),
-        );
+        await updateShippingAddress(editingShippingAddress.id, payload);
         showToast("Address updated successfully", "success");
       } else {
-        const res = await createShippingAddress(payload);
-        setShippingAddresses([...shippingAddresses, res]);
+        await createShippingAddress(payload);
         showToast("Address created successfully", "success");
       }
       setModalType(null);
       setEditingShippingAddress(null);
+      await refreshShippingAddresses(); // Refresh addresses after any save operation
     } catch (error) {
       showToast(
         editingShippingAddress
@@ -586,8 +581,8 @@ const Settings: React.FC = () => {
     ) {
       try {
         await deleteShippingAddress(addr.id);
-        setShippingAddresses(shippingAddresses.filter((a) => a.id !== addr.id));
         showToast("Shipping address deleted", "success");
+        await refreshShippingAddresses(); // Refresh addresses after deletion
       } catch (error) {
         showToast("Failed to delete shipping address", "error");
       }
@@ -1051,7 +1046,7 @@ const Settings: React.FC = () => {
             <input
               name="name"
               required
-              defaultValue={editingShippingAddress?.name}
+              defaultValue={editingShippingAddress?.name || ""}
               className="w-full border p-2 rounded mt-1 bg-white"
             />
           </div>
@@ -1061,7 +1056,7 @@ const Settings: React.FC = () => {
             </label>
             <input
               name="address_line1"
-              defaultValue={editingShippingAddress?.address_line1}
+              defaultValue={editingShippingAddress?.address_line1 || ""}
               className="w-full border p-2 rounded mt-1 bg-white"
             />
           </div>
@@ -1082,7 +1077,7 @@ const Settings: React.FC = () => {
               </label>
               <input
                 name="city"
-                defaultValue={editingShippingAddress?.city}
+                defaultValue={editingShippingAddress?.city || ""}
                 className="w-full border p-2 rounded mt-1 bg-white"
               />
             </div>
@@ -1092,7 +1087,7 @@ const Settings: React.FC = () => {
               </label>
               <input
                 name="state"
-                defaultValue={editingShippingAddress?.state}
+                defaultValue={editingShippingAddress?.state || ""}
                 className="w-full border p-2 rounded mt-1 bg-white"
               />
             </div>
@@ -1102,7 +1097,7 @@ const Settings: React.FC = () => {
               </label>
               <input
                 name="zip"
-                defaultValue={editingShippingAddress?.zip}
+                defaultValue={editingShippingAddress?.zip || ""}
                 className="w-full border p-2 rounded mt-1 bg-white"
               />
             </div>
@@ -1113,10 +1108,10 @@ const Settings: React.FC = () => {
             </label>
             <input
               name="phone_number"
-              defaultValue={editingShippingAddress?.phone_number}
+              defaultValue={editingShippingAddress?.phone_number || ""}
               className="w-full border p-2 rounded mt-1 bg-white"
             />
-          </div>
+          </div>{" "}
           <div className="flex justify-end pt-4">
             <button
               type="submit"

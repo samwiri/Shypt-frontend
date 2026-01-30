@@ -101,13 +101,13 @@ Zip Code: ${address.zip}`;
             deliveries.
           </p>
         </div>
-        <button
+        {/* <button
           onClick={handleOpenModal}
           className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center gap-2"
         >
           <Plus size={18} />
           Add Address(es)
-        </button>
+        </button> */}
       </div>
 
       {loading ? (
