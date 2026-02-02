@@ -17,10 +17,11 @@ import { Counters } from "@/api/types/dashboard";
 import { useLocation } from "react-router-dom";
 import useOrders from "../../api/orders/useOrders";
 import { Order } from "../../api/types/orders";
+import { Link } from "react-router-dom";
 
 const timeAgo = (date: string): string => {
   const seconds = Math.floor(
-    (new Date().getTime() - new Date(date).getTime()) / 1000
+    (new Date().getTime() - new Date(date).getTime()) / 1000,
   );
   let interval = seconds / 31536000;
   if (interval > 1) {
@@ -146,14 +147,14 @@ const AdminDashboard: React.FC = () => {
         <h2 className="text-2xl font-bold text-slate-800">
           Operational Overview
         </h2>
-        <div className="flex space-x-2">
+        {/* <div className="flex space-x-2">
           <button className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm hover:bg-primary-700 transition w-full sm:w-auto">
             Scan Package
           </button>
           <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm hover:bg-slate-50 transition w-full sm:w-auto">
             Export Report
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Stats Grid */}
@@ -179,19 +180,19 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {user?.user_type !== "agent" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Recent Activity Table */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
               <h3 className="font-semibold text-slate-800">
                 Recent House Waybills (HWBs)
               </h3>
-              <a
-                href="#"
+              <Link
+                to="/admin/warehouse"
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium"
               >
                 View All
-              </a>
+              </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -252,7 +253,7 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Action Required */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+          {/* <div className="bg-white rounded-lg shadow-sm border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800">Pending Actions</h3>
             </div>
@@ -265,8 +266,7 @@ const AdminDashboard: React.FC = () => {
                       Compliance Hold
                     </h4>
                     <p className="text-xs text-red-600 mt-1">
-                      HWB-9932 requires inspection. Lithium batteries
-                      suspected.
+                      HWB-9932 requires inspection. Lithium batteries suspected.
                     </p>
                     <button className="mt-2 text-xs font-semibold text-red-700 hover:text-red-800">
                       Review Case &rarr;
@@ -309,7 +309,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       )}
     </div>
