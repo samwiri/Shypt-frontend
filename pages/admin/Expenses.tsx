@@ -34,8 +34,9 @@ const Expenses: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("");
 
   const triggerNav = (path: string) => {
     window.dispatchEvent(new CustomEvent("app-navigate", { detail: path }));
@@ -61,7 +62,7 @@ const Expenses: React.FC = () => {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -188,6 +189,12 @@ const Expenses: React.FC = () => {
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.unit_price, 0);
 
+  const filteredExpenses = selectedCategoryFilter
+    ? expenses.filter(
+        (exp) => exp.expense_category_id === Number(selectedCategoryFilter)
+      )
+    : expenses;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -232,13 +239,27 @@ const Expenses: React.FC = () => {
           <p className="text-xs text-slate-400">Revenue - Expenses</p>
         </div> */}
       </div>
+      <div className="flex justify-end mb-4 gap-2">
+        <select
+          value={selectedCategoryFilter}
+          onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+          className="border p-2 rounded mt-1 bg-white text-slate-900"
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+      </div>
       {isLoading ? (
         <div className="text-center py-10">Loading...</div>
       ) : (
         <DataTable
-          data={expenses}
+          data={filteredExpenses}
           columns={columns}
-                    onRowClick={(exp) => {
+          onRowClick={(exp) => {
             setSelectedExpense(exp);
             setIsDetailModalOpen(true);
           }}
