@@ -46,13 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "CRM / Clients", path: "/admin/users", icon: <Users size={20} /> },
 
     {
-      name: "Client Orders",
+      name: "Client Shipments",
       path: "/admin/client-orders",
       icon: <Package size={20} />,
     },
     // Core Orders
     {
-      name: "Client Shipments",
+      name: "Client Orders",
       path: "/admin/requests",
       icon: <ClipboardList size={20} />,
     },
