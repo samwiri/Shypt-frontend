@@ -13,8 +13,8 @@ import { useToast } from "../../context/ToastContext";
 import useAssistedShopping from "../../api/assistedShopping/useAssistedShopping";
 import {
   AssistedShoppingItem,
-  AddAssistedShoppingItemPayload, // New import
-  AddAssistedShoppingRequestPayload, // New import
+  AddAssistedShoppingItemPayload,
+  AddAssistedShoppingRequestPayload,
 } from "../../api/types/assistedShopping";
 
 const ShoppingRequests: React.FC = () => {
@@ -48,6 +48,7 @@ const ShoppingRequests: React.FC = () => {
       setError(null);
       const response = await listAssistedShoppingRequests();
       setRequests(response.data.data);
+      console.log("requests", response.data.data);
     } catch (err) {
       setError("Failed to fetch shopping requests.");
     } finally {
@@ -99,12 +100,12 @@ const ShoppingRequests: React.FC = () => {
 
     const payload: AddAssistedShoppingRequestPayload = {
       insured: false,
-      shipping_mode: "consequatur",
+      shipping_mode: "standard",
       items: itemsPayload,
-      name: "", // as specified by the user
-      url: "leave this empty", // as specified by the user
-      quantity: itemsPayload.length, // as specified by the user
-      notes: "this as well", // as specified by the user
+      name: "",
+      url: "",
+      quantity: itemsPayload.length,
+      notes: "",
     };
 
     try {
@@ -184,20 +185,39 @@ const ShoppingRequests: React.FC = () => {
     },
     {
       header: "Item",
-      accessor: (r) => (
-        <div>
-          <div className="font-bold text-slate-800">{r.name}</div>
-          <a
-            href={r.url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs text-blue-600 hover:underline flex items-center"
-          >
-            Link <ExternalLink size={10} className="ml-1" />
-          </a>
-        </div>
-      ),
+      accessor: (r) => {
+        if (r.items && r.items.length > 0) {
+          return (
+            <div>
+              <div className="font-bold text-slate-800">
+                {r.items.length > 1
+                  ? `${r.items.length} Items Requested`
+                  : r.items[0].name}
+              </div>
+              <div className="text-xs text-slate-500 truncate" title={r.items.map((item) => item.name).join(", ")}>
+                {r.items.map((item) => item.name).join(", ")}
+              </div>
+            </div>
+          );
+        }
+        // Fallback for older data or single item requests without the 'items' array
+        return (
+          <div>
+            <div className="font-bold text-slate-800">
+              {r.name} (Qty: {r.quantity})
+            </div>
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-blue-600 hover:underline flex items-center"
+            >
+              Link <ExternalLink size={10} className="ml-1" />
+            </a>
+          </div>
+        );
+      },
       sortKey: "name",
       sortable: true,
     },
@@ -216,7 +236,7 @@ const ShoppingRequests: React.FC = () => {
     {
       header: "Quote",
       accessor: (r) => {
-        const quoteAmount = r.quote_items?.reduce(
+        const quoteAmount = r.items?.reduce(
           (acc, q) => acc + q.unit_price * q.quantity,
           0,
         );

@@ -70,7 +70,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
     const total =
       request.quote_items?.reduce(
         (acc, q) => acc + q.unit_price * q.quantity,
-        0
+        0,
       ) || 0;
 
     if (
@@ -98,15 +98,11 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
           });
         }
 
-        // // 3. Update shopping request status
-        // const payload: UpdateAssistedShoppingPayload = {
-        //   name: request.name,
-        //   url: request.url,
-        //   quantity: request.quantity,
-        //   notes: request.notes,
-        //   status: "invoiced",
-        // };
-        // await updateAssistedShopping(request.id, payload);
+        // 3. Update shopping request status to 'paid' after invoice is created.
+        const payload: Partial<UpdateAssistedShoppingPayload> = {
+          status: "paid",
+        };
+        await updateAssistedShopping(request.id, payload);
 
         showToast("Invoice created! Redirecting to payment.", "success");
         triggerNav(`/client/invoices/${invoice.id}`);
@@ -121,16 +117,8 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
   const quoteTotal =
     request?.quote_items?.reduce(
       (acc, q) => acc + q.unit_price * q.quantity,
-      0
+      0,
     ) || 0;
-  const serviceFee =
-    request?.quote_items?.find((q) => q.item_name.includes("Service Fee"))
-      ?.unit_price || 0;
-  const quoteSubtotal = quoteTotal - serviceFee;
-  const domesticShipping =
-    request?.quote_items?.find((q) => q.item_name.includes("Domestic Shipping"))
-      ?.unit_price || 0;
-  const itemCost = quoteSubtotal - domesticShipping;
 
   const updates = useMemo(() => {
     if (!request) return [];
@@ -170,7 +158,7 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
     return getStatusHistory(
       request.status,
       request.created_at,
-      request.updated_at
+      request.updated_at,
     );
   }, [request]);
 
@@ -202,28 +190,21 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
         </button>
         <div>
           <p className="text-sm text-slate-500">REQ-{request.id}</p>
-          <h2 className="text-xl font-bold text-slate-800">{request.name}</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            Shopping Request Details
+          </h2>
           <div className="flex items-center gap-4 mt-2">
             <StatusBadge status={request.status.toUpperCase()} />
             <div className="text-xs text-slate-500 font-medium flex items-center">
               <ShoppingCart size={12} className="mr-1.5" />
-              Quantity:{" "}
+              Total Items:{" "}
               <strong className="ml-1 text-slate-700">
-                {request.quantity}
+                {request.items?.length || request.quantity}
               </strong>
             </div>
             <span className="text-xs text-slate-400">
               • Created {new Date(request.created_at).toLocaleString()}
             </span>
-            <a
-              href={request.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-blue-600 hover:underline flex items-center"
-            >
-              <ExternalLink size={12} className="mr-1" />
-              Original Link
-            </a>
           </div>
         </div>
       </div>
@@ -264,10 +245,57 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
               </div>
             </div>
           )}
+
+          {/* Requested Items Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="p-6 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800">Requested Items</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {request.items && request.items.length > 0 ? (
+                request.items.map((item, index) => (
+                  <div key={index} className="p-3 bg-slate-50 rounded-md border border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <p className="font-semibold text-slate-700">{item.name}</p>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center"
+                      >
+                        <ExternalLink size={12} className="mr-1" />
+                        Link
+                      </a>
+                    </div>
+                    {item.notes && <p className="text-xs text-slate-500 mt-1">Notes: {item.notes}</p>}
+                  </div>
+                ))
+              ) : (
+                 <div className="p-3 bg-slate-50 rounded-md border border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <p className="font-semibold text-slate-700">{request.name}</p>
+                       <a
+                        href={request.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center"
+                      >
+                        <ExternalLink size={12} className="mr-1" />
+                        Link
+                      </a>
+                    </div>
+                     <p className="text-xs text-slate-500 mt-1">Quantity: {request.quantity}</p>
+                    {request.notes && <p className="text-xs text-slate-500 mt-1">Notes: {request.notes}</p>}
+                  </div>
+              )}
+            </div>
+          </div>
+
+
           {/* Quote Card */}
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-200">
-              <h3 className="font-bold text-slate-800">Quotation</h3>
+              <h3 className="font-bold text-slate-800">Quotation Details</h3>
             </div>
             <div className="p-6">
               {request.status === "requested" ? (
@@ -285,20 +313,16 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Item Cost</span>
-                    <span className="font-mono">{formatUgx(itemCost)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Domestic Shipping</span>
-                    <span className="font-mono">
-                      {formatUgx(domesticShipping)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Service Fee</span>
-                    <span className="font-mono">{formatUgx(serviceFee)}</span>
-                  </div>
+                  {request.quote_items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-slate-600">
+                        {item.item_name} (x{item.quantity})
+                      </span>
+                      <span className="font-mono">
+                        {formatUgx(item.unit_price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
                   <div className="border-t border-slate-200 pt-3 mt-2 flex justify-between font-bold text-lg">
                     <span>Total Payable</span>
                     <span className="text-primary-600">
@@ -339,13 +363,6 @@ const ClientShoppingDetails: React.FC<ClientShoppingDetailsProps> = ({
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <h3 className="font-bold text-slate-800 mb-4">Your Notes</h3>
-            <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded">
-              {request.notes || "No notes provided."}
-            </p>
           </div>
         </div>
 

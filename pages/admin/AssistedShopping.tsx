@@ -42,9 +42,14 @@ const AssistedShopping: React.FC = () => {
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Quote state
-  const [quoteCost, setQuoteCost] = useState<number>(0);
-  const [quoteShip, setQuoteShip] = useState<number>(0);
+  // Quote state for multi-item
+  interface ItemQuote {
+    name: string;
+    quantity: number;
+    netCost: number;
+  }
+  const [itemQuotes, setItemQuotes] = useState<ItemQuote[]>([]);
+  const [domesticShippingCost, setDomesticShippingCost] = useState<number>(0);
 
   // Data state
   const [requests, setRequests] = useState<AssistedShoppingItem[]>([]);
@@ -138,7 +143,23 @@ const AssistedShopping: React.FC = () => {
   ) => {
     e.stopPropagation();
     setSelectedReq(req);
+    if (mode === "QUOTE") {
+      const initialQuotes =
+        req.items?.map((item) => ({
+          name: item.name,
+          quantity: (item as any).quantity || 1, // Use quantity from item if available, fallback to 1
+          netCost: 0,
+        })) || [];
+      setItemQuotes(initialQuotes);
+      setDomesticShippingCost(0);
+    }
     setModalMode(mode);
+  };
+
+  const handleQuoteItemChange = (index: number, netCost: number) => {
+    const updatedQuotes = [...itemQuotes];
+    updatedQuotes[index].netCost = netCost;
+    setItemQuotes(updatedQuotes);
   };
 
   const handleQuoteSubmit = async (e: React.FormEvent) => {
@@ -147,23 +168,35 @@ const AssistedShopping: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      if (quoteCost > 0) {
-        await addAssistedShoppingQuote({
-          assisted_shopping_id: selectedReq.id,
-          item_name: selectedReq.name,
-          quantity: selectedReq.quantity,
-          unit_price: quoteCost,
-        });
+      // Add each item's net cost as a quote item
+      for (const item of itemQuotes) {
+        if (item.netCost > 0) {
+          await addAssistedShoppingQuote({
+            assisted_shopping_id: selectedReq.id,
+            item_name: item.name,
+            quantity: item.quantity,
+            unit_price: item.netCost,
+          });
+        }
       }
-      if (quoteShip > 0) {
+
+      // Add domestic shipping if provided
+      if (domesticShippingCost > 0) {
         await addAssistedShoppingQuote({
           assisted_shopping_id: selectedReq.id,
           item_name: "Domestic Shipping",
           quantity: 1,
-          unit_price: quoteShip,
+          unit_price: domesticShippingCost,
         });
       }
-      const serviceFee = (quoteCost + quoteShip) * 0.1;
+
+      // Calculate and add service fee
+      const subtotal =
+        itemQuotes.reduce(
+          (acc, item) => acc + item.netCost * item.quantity,
+          0,
+        ) + domesticShippingCost;
+      const serviceFee = subtotal * 0.1;
       if (serviceFee > 0) {
         await addAssistedShoppingQuote({
           assisted_shopping_id: selectedReq.id,
@@ -173,11 +206,8 @@ const AssistedShopping: React.FC = () => {
         });
       }
 
-      const payload: UpdateAssistedShoppingPayload = {
-        name: selectedReq.name,
-        url: selectedReq.url,
-        quantity: selectedReq.quantity,
-        notes: selectedReq.notes,
+      // Update the main request status to 'quoted'
+      const payload: Partial<UpdateAssistedShoppingPayload> = {
         status: "quoted",
       };
       await updateAssistedShopping(selectedReq.id, payload);
@@ -341,27 +371,45 @@ const AssistedShopping: React.FC = () => {
     },
     {
       header: "Item",
-      accessor: (req) => (
-        <div>
-          <div className="text-sm font-bold text-slate-800">{req.name}</div>
-          <div className="flex gap-2 mt-1">
-            <a
-              href={req.url}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-[10px] text-blue-600 flex items-center hover:underline"
-            >
-              STORE <ExternalLink size={8} className="ml-1" />
-            </a>
-            {req.retailer_ref && (
-              <span className="text-[10px] text-slate-400 font-mono">
-                Ref: {req.retailer_ref}
-              </span>
-            )}
+      accessor: (req) => {
+        if (req.items && req.items.length > 0) {
+          return (
+            <div>
+              <div className="text-sm font-bold text-slate-800">
+                {req.items.length} Items Requested
+              </div>
+              <div
+                className="text-xs text-slate-500 truncate"
+                title={req.items.map((item) => item.name).join(", ")}
+              >
+                {req.items.map((item) => item.name).join(", ")}
+              </div>
+            </div>
+          );
+        }
+        // Fallback for single item requests or when items array is not populated
+        return (
+          <div>
+            <div className="text-sm font-bold text-slate-800">{req.name}</div>
+            <div className="flex gap-2 mt-1">
+              <a
+                href={req.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] text-blue-600 flex items-center hover:underline"
+              >
+                STORE <ExternalLink size={8} className="ml-1" />
+              </a>
+              {req.retailer_ref && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Ref: {req.retailer_ref}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
       sortKey: "name",
       sortable: true,
     },
@@ -447,49 +495,105 @@ const AssistedShopping: React.FC = () => {
       <Modal
         isOpen={modalMode === "QUOTE"}
         onClose={() => setModalMode(null)}
-        title="Generate Quotation"
+        title={`Generate Quotation for REQ-${selectedReq?.id}`}
+        size="lg"
       >
         <form onSubmit={handleQuoteSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto p-2">
+            {itemQuotes.map((item, index) => (
+              <div
+                key={index}
+                className="p-4 border rounded-lg space-y-2 bg-slate-50"
+              >
+                <p className="font-bold text-slate-800">
+                  {item.name}{" "}
+                  <span className="font-normal text-slate-500">
+                    (Qty: {item.quantity})
+                  </span>
+                </p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Item Net Cost (UGX)
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      value={item.netCost || ""}
+                      className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900"
+                      onChange={(e) =>
+                        handleQuoteItemChange(
+                          index,
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Item Net Cost (UGX)
+                Total Domestic Shipping (UGX)
               </label>
               <input
                 required
                 type="number"
                 step="0.01"
                 className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900"
-                onChange={(e) => setQuoteCost(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Domestic Ship (UGX)
-              </label>
-              <input
-                required
-                type="number"
-                step="0.01"
-                className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900"
-                onChange={(e) => setQuoteShip(parseFloat(e.target.value) || 0)}
+                value={domesticShippingCost || ""}
+                onChange={(e) =>
+                  setDomesticShippingCost(parseFloat(e.target.value) || 0)
+                }
               />
             </div>
           </div>
-          <div className="bg-slate-50 p-4 rounded-xl space-y-2 text-sm border border-slate-100">
+
+          <div className="bg-slate-100 p-4 rounded-xl space-y-2 text-sm border border-slate-200">
             <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>{formatUgx(quoteCost + quoteShip)}</span>
+              <span>Items Subtotal:</span>
+              <span>
+                {formatUgx(
+                  itemQuotes.reduce(
+                    (acc, item) => acc + item.netCost * item.quantity,
+                    0,
+                  ),
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Domestic Shipping:</span>
+              <span>{formatUgx(domesticShippingCost)}</span>
             </div>
             <div className="flex justify-between text-primary-600 font-bold">
               <span>Service Fee (10%):</span>
-              <span>{formatUgx((quoteCost + quoteShip) * 0.1)}</span>
+              <span>
+                {formatUgx(
+                  (itemQuotes.reduce(
+                    (acc, item) => acc + item.netCost * item.quantity,
+                    0,
+                  ) +
+                    domesticShippingCost) *
+                    0.1,
+                )}
+              </span>
             </div>
             <div className="flex justify-between text-lg font-black text-slate-900 border-t pt-2">
               <span>Final Quote:</span>
-              <span>{formatUgx((quoteCost + quoteShip) * 1.1)}</span>
+              <span>
+                {formatUgx(
+                  (itemQuotes.reduce(
+                    (acc, item) => acc + item.netCost * item.quantity,
+                    0,
+                  ) +
+                    domesticShippingCost) *
+                    1.1,
+                )}
+              </span>
             </div>
           </div>
+
           <button
             type="submit"
             disabled={isSubmitting}

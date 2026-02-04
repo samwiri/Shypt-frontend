@@ -41,6 +41,7 @@ export interface AssistedShoppingItem {
   user_id: number;
   user: AssistedShoppingUser;
   quote_items?: AssistedShoppingQuote[]; // Quotes might be part of the detailed view
+  items?: { name: string; notes: string; url: string }[];
   retailer_ref?: string;
   carrier?: string;
   tracking_ref?: string;

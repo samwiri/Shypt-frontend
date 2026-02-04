@@ -182,22 +182,20 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
           </button>
           <div>
             <h2 className="text-xl font-black text-slate-800 tracking-tight">
-              REQ-{request.id}
+              Shopping Request Details
             </h2>
             <div className="flex items-center gap-2 mt-1">
               <StatusBadge status={request.status.toUpperCase()} />
               <span className="text-xs text-slate-400">
                 • Created {new Date(request.created_at).toLocaleString()}
               </span>
-              <a
-                href={request.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-blue-600 hover:underline flex items-center ml-2"
-              >
-                <ExternalLink size={12} className="mr-1" />
-                Original Link
-              </a>
+              <span className="text-xs text-slate-500 font-medium flex items-center">
+                <ShoppingCart size={12} className="mr-1.5" />
+                Total Items:{" "}
+                <strong className="ml-1 text-slate-700">
+                  {request.items?.length || request.quantity}
+                </strong>
+              </span>
             </div>
           </div>
         </div>
@@ -238,16 +236,64 @@ const ShoppingDetails: React.FC<ShoppingDetailsProps> = ({
                     ID: CL-{request.user.id}
                   </p>
                 </div>
+                {/* Removed redundant item details from here, now in Requested Items Card */}
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">
-                    Item details
+                   <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">
+                    Request ID
                   </p>
                   <p className="font-bold text-slate-900 text-lg">
-                    {request.name} (x{request.quantity})
+                    REQ-{request.id}
                   </p>
-                  <p className="text-sm text-slate-600 mt-1">{request.notes}</p>
+                   {request.notes && <p className="text-sm text-slate-600 mt-1">Notes: {request.notes}</p>}
                 </div>
               </div>
+
+              {/* Requested Items Card - Admin View */}
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-6">
+                <div className="p-6 border-b border-slate-200">
+                  <h3 className="font-bold text-slate-800">Requested Items</h3>
+                </div>
+                <div className="p-6 space-y-4">
+                  {request.items && request.items.length > 0 ? (
+                    request.items.map((item, index) => (
+                      <div key={index} className="p-3 bg-slate-50 rounded-md border border-slate-100">
+                        <div className="flex justify-between items-start">
+                          <p className="font-semibold text-slate-700">{item.name}</p>
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 hover:underline flex items-center"
+                          >
+                            <ExternalLink size={12} className="mr-1" />
+                            Link
+                          </a>
+                        </div>
+                        {item.notes && <p className="text-xs text-slate-500 mt-1">Notes: {item.notes}</p>}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-100">
+                      <div className="flex justify-between items-start">
+                        <p className="font-semibold text-slate-700">{request.name}</p>
+                         <a
+                          href={request.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center"
+                        >
+                          <ExternalLink size={12} className="mr-1" />
+                          Link
+                        </a>
+                      </div>
+                       <p className="text-xs text-slate-500 mt-1">Quantity: {request.quantity}</p>
+                      {request.notes && <p className="text-xs text-slate-500 mt-1">Notes: {request.notes}</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
               {request.status === "purchased" && (
                 <div className="mb-10 bg-slate-900 text-white p-6 rounded-2xl shadow-xl ring-1 ring-slate-800">
                   <h4 className="flex items-center text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-4">
