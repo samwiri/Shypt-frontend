@@ -66,12 +66,12 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
           <h3 className="text-lg font-semibold text-slate-800 flex items-center">
             <Box className="mr-2" size={20} /> Receive New Package
           </h3>
-          <button
+          {/* <button
             onClick={() => setIsScannerOpen(true)}
             className="flex items-center px-3 py-1.5 bg-slate-800 text-white rounded hover:bg-slate-700 text-xs font-bold shadow-sm transition"
           >
             <Camera size={14} className="mr-1.5" /> Scan Barcode
-          </button>
+          </button> */}
         </div>
 
         <form onSubmit={handleReceipt} className="space-y-4">
@@ -248,7 +248,8 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
           {inventory
             .filter(
               (i) =>
-                i.status === OrderStatus.RECEIVED && i.origin === currentLocation
+                i.status === OrderStatus.RECEIVED &&
+                i.origin === currentLocation,
             )
             .slice(-5)
             .reverse()
@@ -268,7 +269,7 @@ const ReceiptFlow: React.FC<ReceiptFlowProps> = ({
             ))}
           {inventory.filter(
             (i) =>
-              i.status === OrderStatus.RECEIVED && i.origin === currentLocation
+              i.status === OrderStatus.RECEIVED && i.origin === currentLocation,
           ).length === 0 && (
             <p className="text-slate-400 text-sm text-center py-4">
               No recent receipts at this location.
