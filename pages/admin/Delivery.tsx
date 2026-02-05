@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Eye, Loader2, User, Phone } from "lucide-react";
+import { Plus, Eye, Loader2, User, Phone, Trash2 } from "lucide-react";
 import { DataTable, Column } from "../../components/UI/DataTable";
 import Modal from "../../components/UI/Modal";
 import { useToast } from "../../context/ToastContext";
@@ -23,6 +23,7 @@ const DeliveryOrders: React.FC = () => {
     createDeliveryOrder,
     updateDeliveryOrderStatus,
     getDeliverRiders,
+    deleteDeliveryOrder,
   } = useDelivery();
   const { getOrders } = useOrders();
 
@@ -189,6 +190,21 @@ const DeliveryOrders: React.FC = () => {
     }
   };
 
+  const handleDeleteDelivery = async (deliveryId: number) => {
+    if (
+      window.confirm("Are you sure you want to delete this delivery order?")
+    ) {
+      try {
+        await deleteDeliveryOrder(deliveryId);
+        showToast("Delivery order deleted successfully!", "success");
+        fetchData(); // Refresh data after deletion
+      } catch (error) {
+        console.error(error);
+        showToast("Failed to delete delivery order.", "error");
+      }
+    }
+  };
+
   const handleDriverClick = (
     e: React.MouseEvent,
     driver: Partial<AuthUser>,
@@ -292,6 +308,19 @@ const DeliveryOrders: React.FC = () => {
           >
             <Eye size={18} />
           </button>
+          {(user?.user_type === "super_user" ||
+            user?.user_type === "staff") && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteDelivery(delivery.id);
+              }}
+              className="text-slate-400 hover:text-red-600 p-1"
+              title="Delete Delivery"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       ),
     },

@@ -23,6 +23,7 @@ import {
   UploadSignaturePayload,
 } from "../../api/types/delivery";
 import Modal from "../../components/UI/Modal";
+import { useAuthContext } from "../../context/AuthContext";
 
 interface DeliveryDetailsProps {
   deliveryId: string;
@@ -34,6 +35,7 @@ const DeliveryDetails: React.FC<DeliveryDetailsProps> = ({
   onBack,
 }) => {
   const { showToast } = useToast();
+  const { user } = useAuthContext();
   const {
     showDeliveryOrder,
     updateDeliveryOrderStatus,
@@ -233,13 +235,16 @@ const DeliveryDetails: React.FC<DeliveryDetailsProps> = ({
         </div>
         <div className="flex items-center space-x-3">
           <StatusBadge status={delivery.status} />
-          <button
-            onClick={handleDelete}
-            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
-            title="Delete Order"
-          >
-            <Trash2 size={20} />
-          </button>
+          {(user?.user_type === "super_user" ||
+            user?.user_type === "staff") && (
+            <button
+              onClick={handleDelete}
+              className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded"
+              title="Delete Order"
+            >
+              <Trash2 size={20} />
+            </button>
+          )}
         </div>
       </div>
 
