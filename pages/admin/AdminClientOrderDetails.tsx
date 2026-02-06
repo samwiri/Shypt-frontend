@@ -1382,7 +1382,7 @@ const AdminClientOrderDetails: React.FC<AdminClientOrderDetailsProps> = ({
                   viewingPackage.package_photos.map((photo, index) => (
                     <img
                       key={index}
-                      src={`${client.defaults.baseURL}/${photo}`}
+                      src={`${client.defaults.baseURL}/storage/${photo}`}
                       alt={`Package photo ${index + 1}`}
                       className="w-full h-auto rounded-lg"
                     />
