@@ -12,4 +12,18 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("token_osm");
+      localStorage.removeItem("user_osm");
+      delete client.defaults.headers.common["Authorization"];
+
+      window.dispatchEvent(new CustomEvent("app-navigate", { detail: "/" }));
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default client;

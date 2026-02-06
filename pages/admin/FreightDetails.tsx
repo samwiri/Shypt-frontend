@@ -80,7 +80,7 @@ const FreightDetails: React.FC = () => {
           confirm(
             `Confirm departure of ${
               shipment.mawb_number || `ID: ${shipment.id}`
-            }? This may notify clients.`
+            }? This may notify clients.`,
           )
         ) {
           await performUpdate("DEPARTED");
@@ -208,7 +208,7 @@ const FreightDetails: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:block">
+      <div className="grid grid-cols-1 gap-6 print:block">
         {/* Main Content: Manifest List */}
         <div className="lg:col-span-2 space-y-6 print:w-full">
           <div className="print:block hidden">
@@ -236,7 +236,7 @@ const FreightDetails: React.FC = () => {
               <p className="text-lg font-bold text-slate-800 mt-1">
                 {shipment.packages.reduce(
                   (acc, curr) => Number(acc) + Number(curr.weight),
-                  0
+                  0,
                 )}{" "}
                 kg
               </p>
@@ -265,7 +265,7 @@ const FreightDetails: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 print:shadow-none print:border-none">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 print:bg-transparent print:border-slate-800">
               <h3 className="font-bold text-slate-800">
                 Manifested Items ({shipment.packages.length})
@@ -318,14 +318,14 @@ const FreightDetails: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-right font-medium print:px-0">
                       {pkg.weight} kg
                     </td>
-                    <td className="px-6 py-4 text-right print:hidden">
+                    {/* <td className="px-6 py-4 text-right print:hidden">
                       <button
                         className="text-slate-400 hover:text-blue-600 p-1"
                         onClick={() => triggerNav(`/admin/inventory/${pkg.id}`)}
                       >
                         <Box size={16} />
                       </button>
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>
@@ -341,29 +341,29 @@ const FreightDetails: React.FC = () => {
         </div>
 
         {/* Sidebar - Hidden on Print */}
-        <div className="space-y-6 print:hidden">
-          {shipment.transport_mode === "SEA" && (
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-                <Container size={18} className="mr-2 text-slate-500" />{" "}
-                Container Info
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between border-b border-slate-100 pb-2">
-                  <span className="text-slate-500">Container No.</span>
-                  <span className="font-mono font-medium">
-                    {shipment.container_flight_number}
-                  </span>
-                </div>
-                {/* <div className="flex justify-between border-b border-slate-100 pb-2">
+        {/* <div className="space-y-6 print:hidden"> */}
+        {/* {shipment.transport_mode === "SEA" && ( */}
+        {/* <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+            <Container size={18} className="mr-2 text-slate-500" /> Container
+            Info
+          </h3>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+              <span className="text-slate-500">Container No.</span>
+              <span className="font-mono font-medium">
+                {shipment.container_flight_number}
+              </span>
+            </div> */}
+        {/* <div className="flex justify-between border-b border-slate-100 pb-2">
                   <span className="text-slate-500">Seal No.</span>
                   <span className="font-mono font-medium">{shipment.seal}</span>
                 </div> */}
-              </div>
-            </div>
-          )}
+        {/* </div>
+        </div> */}
+        {/* )} */}
 
-          {/* <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        {/* <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center">
               <FileText size={18} className="mr-2 text-slate-500" /> Documents
             </h3>
@@ -374,7 +374,7 @@ const FreightDetails: React.FC = () => {
               </button>
             </div>
           </div> */}
-        </div>
+        {/* </div> */}
       </div>
     </div>
   );
