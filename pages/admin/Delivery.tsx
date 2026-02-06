@@ -278,14 +278,14 @@ const DeliveryOrders: React.FC = () => {
       className: "text-right",
       accessor: (delivery) => (
         <div className="flex justify-end gap-2">
-          {delivery.status === "PENDING" && (
+          {/* {delivery.status === "PENDING" && (
             <button
               onClick={(e) => handleDispatchClick(e, delivery)}
               className="text-xs bg-blue-600 text-white px-2 py-1 rounded"
             >
               Dispatch
             </button>
-          )}
+          )} */}
           {delivery.status === "ASSIGNED" ||
             (delivery.status === "OUT_FOR_DELIVERY" && (
               <button
