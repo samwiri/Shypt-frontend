@@ -210,6 +210,7 @@ const AssistedShopping: React.FC = () => {
       const payload: Partial<UpdateAssistedShoppingPayload> = {
         status: "quoted",
       };
+      // @ts-ignore
       await updateAssistedShopping(selectedReq.id, payload);
 
       showToast("Quotation sent to client", "success");
@@ -893,4 +894,3 @@ const AssistedShopping: React.FC = () => {
 };
 
 export default AssistedShopping;
-

@@ -70,7 +70,6 @@ const AdminDashboard: React.FC = () => {
       getOrders()
         .then((response) => {
           const orders: Order[] = response.data?.data || [];
-          console.log("orders", orders);
           const allPackages = orders.flatMap((order) =>
             order.packages.map((pkg) => ({
               id: pkg.hwb_number,
@@ -101,7 +100,7 @@ const AdminDashboard: React.FC = () => {
     } else {
       setHwbsLoading(false);
     }
-  }, [pathname, user]);
+  }, []);
 
   const stats = [
     {
